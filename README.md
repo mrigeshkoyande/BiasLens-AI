@@ -1,110 +1,136 @@
-# BiasLens AI 🔍
+<div align="center">
+  
+# 🔍 BiasLens AI
 
-> **AI-powered fairness auditing platform** — detect, explain, and fix bias in datasets and machine learning models.
+**An AI-powered fairness auditing platform to detect, explain, and mitigate bias in machine learning models and datasets.**
 
-## 🚀 Quick Start
+[![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Python](https://img.shields.io/badge/Python-3.13-3776AB?style=for-the-badge&logo=python)](https://python.org)
+[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-### Frontend (Next.js 14)
-```bash
-cd frontend
-npm install
-npm run dev
-# → http://localhost:3000
-```
-
-### Backend (FastAPI)
-```bash
-cd backend
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-# → http://localhost:8000
-# → API Docs: http://localhost:8000/docs
-```
+</div>
 
 ---
 
-## 🗂 Project Structure
+## 📖 Overview
 
-```
-BiasLens-AI/
-├── frontend/          # Next.js 14 + Tailwind CSS
-│   ├── src/app/       # Pages: Dashboard, Upload, Reports, Settings
-│   ├── src/components # UI + Feature components
-│   └── src/lib/       # Types, mock data, API client
-│
-└── backend/           # FastAPI Python
-    └── app/
-        ├── routers/   # upload, analyze, explain, simulate, fix, chat, report
-        ├── models/    # Pydantic schemas
-        └── main.py    # App entry point
-```
+**BiasLens AI** is a comprehensive, full-stack platform designed for data scientists, compliance officers, and ML engineers to audit datasets for fairness. It automatically analyzes datasets, detects demographic disparities, visualizes feature importance, simulates real-world impacts, and suggests data mitigation strategies. 
 
----
+It comes with a **Glass-morphic dark mode UI** and a **FastAPI backend** optimized for rapid analytical workflows.
 
-## ⚙️ Environment Setup
+## ✨ Key Features
 
-Copy `.env.example` to `.env` in the `backend/` folder:
-
-```env
-GEMINI_API_KEY=your_key_here    # For AI chat assistant
-SUPABASE_URL=https://xxx.supabase.co
-SUPABASE_KEY=your_anon_key
-```
-
-> Without a Gemini API key, the chat assistant uses a smart rule-based fallback.
+- 📤 **Intelligent Upload System** — Drag-and-drop CSV upload with automatic column type inference.
+- 📊 **Bias Detection Dashboard** — Real-time calculation of Demographic Parity, Equal Opportunity, Disparate Impact, and an aggregated Fairness Score.
+- 🧠 **Explainable AI (XAI)** — Human-readable narratives and SHAP-based feature importance charts to understand *why* bias exists.
+- 📈 **Impact Simulation** — Scale up the bias mathematically to see the real-world impact across 100K+ applicants.
+- 🛠 **Auto-Fix Suggestions** — View side-by-side comparisons of 4 mitigation strategies (Reweighing, Suppression, SMOTE, Thresholding).
+- 🤖 **AI Assistant** — A floating Gemini-powered chat panel to answer fairness questions on the fly.
+- 📄 **Compliance Reporting** — Generate professional PDF reports summarizing the audit.
 
 ---
 
-## 🔌 API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/upload` | Upload CSV dataset |
-| `POST` | `/api/analyze` | Run bias analysis |
-| `POST` | `/api/explain` | Generate feature importance |
-| `POST` | `/api/simulate` | Simulate at-scale impact |
-| `POST` | `/api/fix` | Apply mitigation strategy |
-| `POST` | `/api/chat` | AI chat assistant |
-| `POST` | `/api/report/generate` | Generate PDF report |
-| `GET`  | `/api/report/{id}/download` | Download PDF |
-| `GET`  | `/health` | Health check |
-
----
-
-## 🧠 Tech Stack
+## 🛠 Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Next.js 14, Tailwind CSS v3, Recharts, Framer Motion |
-| Backend | FastAPI, Python 3.13, Uvicorn |
-| ML | scikit-learn, pandas, numpy |
-| AI Chat | Google Gemini 1.5 Flash |
-| PDF | ReportLab |
-| Database | Supabase (PostgreSQL) |
+| **Frontend** | Next.js 14 (App Router), React, Tailwind CSS, Recharts, Framer Motion, Lucide Icons |
+| **Backend** | Python 3.13, FastAPI, Uvicorn, Pydantic |
+| **ML & Data** | scikit-learn, pandas, numpy |
+| **AI Integration**| Google Gemini 1.5 Flash API |
+| **Reporting** | ReportLab (PDF Generation) |
 
 ---
 
-## 📊 Features
+## 🚀 Getting Started
 
-1. **Upload System** — CSV drag-and-drop or API connect, auto column type detection
-2. **Bias Detection Dashboard** — Demographic Parity, Equal Opportunity, Disparate Impact, Fairness Score 0–100
-3. **Bias Explanation** — Human-readable narratives + feature importance charts
-4. **Real-World Simulation** — Scale impact to 100K applicants, cost estimation
-5. **Auto-Fix Suggestions** — 4 mitigation strategies with before/after comparison
-6. **Report Generator** — Professional PDF with metrics, risks, and recommendations
-7. **AI Assistant** — Chat panel powered by Gemini (rule-based fallback included)
+### 1. Clone the Repository
+```bash
+git clone https://github.com/mrigeshkoyande/BiasLens-AI.git
+cd BiasLens-AI
+```
+
+### 2. Start the Backend (FastAPI)
+The backend handles the data crunching, API routing, and AI generation.
+
+```bash
+cd backend
+
+# Create a virtual environment (optional but recommended)
+python -m venv venv
+source venv/bin/activate  # On Windows use: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment variables
+cp .env.example .env
+# Edit .env and add your GEMINI_API_KEY for the AI Chat feature
+
+# Start the server
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+> The API will be running at `http://localhost:8000`
+> Swagger UI documentation is available at `http://localhost:8000/docs`
+
+### 3. Start the Frontend (Next.js)
+The frontend is a beautifully designed dashboard for interacting with the BiasLens core.
+
+```bash
+cd frontend
+
+# Install Node modules
+npm install
+
+# Start the development server
+npm run dev
+```
+> The web application will be accessible at `http://localhost:3000`
+
+---
+
+## 🔌 API Reference
+
+BiasLens exposes a robust REST API for programmatic access:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/upload` | Upload and parse CSV dataset |
+| `POST` | `/api/analyze` | Run core bias metrics analysis |
+| `POST` | `/api/explain` | Generate SHAP feature importance |
+| `POST` | `/api/simulate` | Simulate at-scale societal impact |
+| `POST` | `/api/fix` | Apply and compare mitigation strategies |
+| `POST` | `/api/chat` | Send a prompt to the AI assistant |
+| `POST` | `/api/report/generate` | Generate compliance PDF report |
+| `GET`  | `/health` | API Health check |
 
 ---
 
 ## 🚢 Deployment
 
-**Frontend → Vercel**
+### Deploying the Frontend (Vercel)
+The easiest way to deploy the frontend is via Vercel:
 ```bash
-cd frontend && vercel deploy
+cd frontend
+npx vercel deploy
 ```
 
-**Backend → Docker**
+### Deploying the Backend (Docker / Cloud Run)
+A production-ready `Dockerfile` is included in the `backend/` directory.
 ```bash
 cd backend
 docker build -t biaslens-api .
 docker run -p 8000:8000 --env-file .env biaslens-api
 ```
+
+---
+
+## 📝 License
+This project is licensed under the [MIT License](LICENSE).
+
+---
+<div align="center">
+  <i>Developed with ❤️ for Ethical AI</i>
+</div>
