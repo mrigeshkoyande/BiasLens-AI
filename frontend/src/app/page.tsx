@@ -1,164 +1,215 @@
 'use client';
-import Header from '@/components/layout/Header';
-import MetricCard from '@/components/dashboard/MetricCard';
-import BiasChart from '@/components/dashboard/BiasChart';
-import ProgressRing from '@/components/ui/ProgressRing';
-import RiskBadge from '@/components/ui/RiskBadge';
-import BiasExplanationPanel from '@/components/explanation/BiasExplanationPanel';
-import FeatureImportancePanel from '@/components/explanation/FeatureImportancePanel';
-import SimulationSlider from '@/components/simulation/SimulationSlider';
-import FixSuggestions from '@/components/autofix/FixSuggestions';
-import ChatPanel from '@/components/chat/ChatPanel';
-import {
-  mockMetrics,
-  mockGroupMetrics,
-  mockExplanations,
-  mockFeatureImportance,
-  mockSimulation,
-  mockFixStrategies,
-  mockDataset,
-} from '@/lib/mockData';
-import {
-  GitCompare,
-  Download,
-  Database,
-  AlertOctagon,
-  Scale,
-  Activity,
-} from 'lucide-react';
 import Link from 'next/link';
+import { usePipeline } from '@/lib/pipeline';
+
+function RingGauge({ score, size = 160 }: { score: number; size?: number }) {
+  const r = size / 2 - 14;
+  const circ = 2 * Math.PI * r;
+  const pct = Math.min(Math.max(score, 0), 100) / 100;
+  const color = score >= 70 ? '#b9f500' : score >= 40 ? '#f59e0b' : '#ef4444';
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#dde8b0" strokeWidth={12} />
+      <circle
+        cx={size/2} cy={size/2} r={r}
+        fill="none" stroke={color} strokeWidth={12} strokeLinecap="round"
+        strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
+        style={{ transition: 'stroke-dashoffset 1.4s cubic-bezier(.22,1,.36,1)' }}
+      />
+    </svg>
+  );
+}
 
 export default function DashboardPage() {
+  const pipeline = usePipeline();
+  const score = pipeline.fairnessScore ?? 85;
+  const hasData = pipeline.hasPipeline && pipeline.analysisId;
+  const riskLevel = pipeline.riskLevel ?? 'low';
+
   return (
-    <>
-      <Header
-        title="Fairness Dashboard"
-        subtitle="Bias analysis for hiring_dataset_2024.csv · Last analyzed 2 hours ago"
-        breadcrumbs={[{ label: 'BiasLens AI' }, { label: 'Dashboard' }]}
-        actions={
-          <div className="flex items-center gap-2">
-            <Link href="/upload" className="btn-secondary text-[12px] py-2 px-3">
-              <Database size={13} />
-              New Dataset
-            </Link>
-            <button className="btn-primary text-[12px] py-2 px-3">
-              <Download size={13} />
-              Export PDF
-            </button>
-          </div>
-        }
-      />
+    <div className="page-shell">
 
-      <div className="p-6 space-y-6 max-w-[1600px]">
-        {/* ── BANNER ── */}
-        <div
-          className="rounded-2xl border border-[rgba(239,68,68,0.2)] p-4 flex items-center gap-4"
-          style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.06), rgba(124,58,237,0.06))' }}
-        >
-          <div className="w-10 h-10 rounded-xl bg-[rgba(239,68,68,0.15)] flex items-center justify-center flex-shrink-0">
-            <AlertOctagon size={20} className="text-[#ef4444]" />
-          </div>
-          <div className="flex-1">
-            <div className="text-[13px] font-semibold text-[#f1f5f9]">
-              High-Risk Bias Detected in <span className="text-[#00d4ff]">{mockDataset.filename}</span>
-            </div>
-            <div className="text-[11px] text-[#94a3b8] mt-0.5">
-              {mockDataset.rowCount.toLocaleString()} rows · {mockDataset.columnCount} columns · 3 sensitive attributes identified · 2 critical issues found
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <RiskBadge level="high" />
-            <button className="btn-primary text-[11px] py-1.5 px-3">
-              <GitCompare size={12} />
-              View Full Report
-            </button>
-          </div>
-        </div>
-
-        {/* ── ROW 1: Fairness Score + Metric Cards ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          {/* Fairness Score gauge */}
-          <div className="lg:col-span-1 rounded-2xl border border-white/[0.07] bg-[#0f0f1a] p-6 flex flex-col items-center justify-center gap-2"
-            style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.35)' }}>
-            <p className="text-[11px] font-semibold text-[#475569] uppercase tracking-wider mb-2">Overall Score</p>
-            <ProgressRing score={mockMetrics.fairnessScore} size={160} />
-            <div className="w-full mt-3 pt-3 border-t border-white/[0.06]">
-              <div className="grid grid-cols-2 gap-2 text-center">
-                <div>
-                  <div className="text-[10px] text-[#475569]">Dataset</div>
-                  <div className="text-[11px] font-semibold text-[#f1f5f9] truncate">{mockDataset.filename.split('_')[0]}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-[#475569]">Rows</div>
-                  <div className="text-[11px] font-semibold text-[#f1f5f9]">{mockDataset.rowCount.toLocaleString()}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Metric cards */}
-          <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <MetricCard
-              title="Demographic Parity"
-              value={mockMetrics.demographicParity}
-              suffix=" gap"
-              decimals={2}
-              description="Difference in selection rates between most and least favored groups"
-              trend="up"
-              trendValue="0.04"
-              color="red"
-              invert={true}
-              icon={<Scale size={16} />}
-            />
-            <MetricCard
-              title="Equal Opportunity"
-              value={mockMetrics.equalOpportunity}
-              suffix=" diff"
-              decimals={2}
-              description="Gap in true positive rates across demographic groups"
-              trend="neutral"
-              trendValue="0.00"
-              color="amber"
-              invert={true}
-              icon={<Activity size={16} />}
-            />
-            <MetricCard
-              title="Disparate Impact"
-              value={mockMetrics.disparateImpact}
-              suffix=" ratio"
-              decimals={2}
-              description="Ratio of selection rates (below 0.80 = adverse impact rule)"
-              trend="down"
-              trendValue="0.03"
-              color="purple"
-              invert={false}
-              icon={<GitCompare size={16} />}
-            />
-          </div>
-        </div>
-
-        {/* ── ROW 2: Charts + Explanations ── */}
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
-          <div className="xl:col-span-3">
-            <BiasChart groupMetrics={mockGroupMetrics} />
-          </div>
-          <div className="xl:col-span-2">
-            <BiasExplanationPanel explanations={mockExplanations} />
-          </div>
-        </div>
-
-        {/* ── ROW 3: Feature Importance + Simulation ── */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <FeatureImportancePanel features={mockFeatureImportance} />
-          <SimulationSlider baseResult={mockSimulation} />
-        </div>
-
-        {/* ── ROW 4: Auto-Fix Suggestions ── */}
-        <FixSuggestions strategies={mockFixStrategies} />
+      {/* Model identity */}
+      <div className="animate-fade-in-up" style={{ textAlign: 'center', marginBottom: 12 }}>
+        <div className="section-kicker" style={{ marginBottom: 6 }}>CURRENT MODEL INTEGRITY</div>
+        <h1 style={{ fontSize: 'clamp(24px, 4vw, 32px)', fontWeight: 900, letterSpacing: '-0.03em', color: 'var(--ink)' }}>
+          {hasData ? `Dataset: ${pipeline.filename ?? 'Active Audit'}` : 'Model: HR-Recruiter-v2.4'}
+        </h1>
       </div>
 
-      {/* Floating AI Chat */}
-      <ChatPanel />
-    </>
+      {/* Ring gauge centered */}
+      <div className="animate-fade-in-up delay-100" style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
+        <div style={{ position: 'relative', width: 160, height: 160 }}>
+          <RingGauge score={score} size={160} />
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ fontSize: 44, fontWeight: 900, color: 'var(--ink)', lineHeight: 1 }}>{Math.round(score)}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted)', marginTop: 2 }}>FAIRNESS SCORE</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main responsive grid */}
+      <div className="responsive-grid">
+
+        {/* LEFT column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+          {/* Priority Insight card */}
+          <div className="editorial-card animate-card-enter delay-200" style={{ padding: 'clamp(18px, 3vw, 28px)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+              <span className="lime-pill" style={{ padding: '4px 12px', fontSize: 11 }}>PRIORITY INSIGHT</span>
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>Updated 2m ago</span>
+            </div>
+            <h2 style={{ fontSize: 'clamp(16px, 2.5vw, 20px)', fontWeight: 800, color: 'var(--ink)', marginBottom: 10 }}>
+              Demographic Parity Warning
+            </h2>
+            <p style={{ fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.65, marginBottom: 18 }}>
+              {hasData
+                ? `The model shows a fairness score of ${Math.round(score)}/100 on ${pipeline.filename}. ${riskLevel === 'high' ? 'High risk bias detected — immediate mitigation recommended.' : riskLevel === 'medium' ? 'Moderate skew detected across sensitive attribute groups.' : 'Fairness metrics are within acceptable bounds.'}`
+                : 'The model shows a statistically significant preference for candidates with over 10 years of experience in technical roles, which correlates with a systemic bias against younger applicants in the "Junior Engineering" category.'}
+            </p>
+            <div className="responsive-grid-equal">
+              {[
+                { label: 'Impact Radius', value: hasData ? `${(100 - score).toFixed(1)}% Skew` : '12.4% Skew' },
+                { label: 'Confidence', value: 'High (98%)' },
+              ].map(({ label, value }) => (
+                <div key={label} className="soft-panel" style={{ padding: '14px 18px' }}>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4, fontWeight: 600 }}>{label}</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>{value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Metric Distribution */}
+          <div className="editorial-card animate-card-enter delay-300" style={{ padding: 'clamp(18px, 3vw, 28px)' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6, flexWrap: 'wrap', gap: 8 }}>
+              <div>
+                <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--ink)', marginBottom: 2 }}>Metric Distribution</h3>
+                <p style={{ fontSize: 12, color: 'var(--muted)' }}>Comparison of outcome probabilities across demographic groups.</p>
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {['Ethnicity', 'Gender', 'Age'].map((g, i) => (
+                  <span key={g} style={{
+                    padding: '4px 12px', borderRadius: 999, fontSize: 11, fontWeight: 700,
+                    background: i === 1 ? 'var(--lime)' : 'transparent',
+                    border: i === 1 ? '1px solid var(--lime)' : '1px solid var(--line)',
+                    color: i === 1 ? 'var(--ink)' : 'var(--muted)',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s var(--ease-spring)',
+                  }}>{g}</span>
+                ))}
+              </div>
+            </div>
+
+            {/* Bar chart */}
+            <div style={{ height: 120, display: 'flex', alignItems: 'flex-end', gap: 'clamp(6px, 1.5vw, 12px)', marginTop: 20, borderBottom: '1px solid var(--line)', paddingBottom: 8 }}>
+              {[
+                { label: 'GROUP A', pct: 88 },
+                { label: 'GROUP B', pct: 72, active: true },
+                { label: 'GROUP C', pct: 65 },
+                { label: 'GROUP D', pct: 78 },
+                { label: 'GROUP E', pct: 55 },
+                { label: 'GROUP F', pct: 43 },
+              ].map((b) => (
+                <div key={b.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <div style={{
+                    width: '100%', height: b.pct + '%', borderRadius: '6px 6px 0 0',
+                    background: b.active ? 'var(--lime)' : b.pct > 70 ? '#c8d88a' : '#b0b880',
+                    transition: 'height 0.8s cubic-bezier(.22,1,.36,1)',
+                  }} />
+                  <div style={{ fontSize: 'clamp(7px, 1.2vw, 9px)', color: 'var(--muted)', fontWeight: 600, textAlign: 'center', letterSpacing: '0.04em' }}>{b.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Historical Audits */}
+          <div className="editorial-card animate-card-enter delay-400" style={{ padding: 'clamp(18px, 3vw, 24px)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)' }}>Historical Audits</div>
+              <Link href="/reports" style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'underline', transition: 'color 0.2s' }}>View All</Link>
+            </div>
+            {[
+              { label: 'Full System Re-Scan', date: 'Oct 24, 2023 · Passed', score: '92/100', pass: true },
+              { label: 'Delta Check v2.3', date: 'Oct 12, 2023 · Warning', score: '74/100', pass: false },
+            ].map((a) => (
+              <div key={a.label} style={{
+                display: 'flex', alignItems: 'center', gap: 14, padding: '13px 0', borderBottom: '1px solid var(--line)',
+                transition: 'background 0.3s var(--ease-smooth)',
+              }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 12, flexShrink: 0,
+                  background: a.pass ? 'var(--lime)' : '#fef3c7',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 16, color: a.pass ? 'var(--ink)' : '#b45309', fontVariationSettings: "'FILL' 1" }}>
+                    {a.pass ? 'check_circle' : 'search'}
+                  </span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{a.label}</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>{a.date}</div>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink)', flexShrink: 0 }}>{a.score}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* RIGHT column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Key Bias Drivers */}
+          <div className="editorial-card animate-card-enter delay-300" style={{ padding: 22 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)', marginBottom: 16 }}>Key Bias Drivers</div>
+            {[
+              { label: 'University Ranking', pct: '42%' },
+              { label: 'Postal Code', pct: '28%' },
+              { label: 'Gap in Employment', pct: '15%' },
+            ].map((d) => (
+              <div key={d.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
+                <span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{d.label}</span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: '#d7442f' }}>{d.pct}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Recommended Mitigation — dark olive card */}
+          <div className="editorial-card animate-card-enter delay-400" style={{ padding: 22, background: '#2e3800', border: 'none' }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--lime)', marginBottom: 10 }}>Recommended Mitigation</div>
+            <p style={{ fontSize: 12, color: '#b8c870', lineHeight: 1.6, marginBottom: 16 }}>
+              {hasData
+                ? `Applying "Adversarial Debiasing" on ${pipeline.sensitiveColumns[0] ?? 'the primary sensitive feature'} is estimated to improve the Fairness Score by 6.5 points while maintaining 97.4% model accuracy.`
+                : 'Implementing "Adversarial Debiasing" on the University Ranking feature is estimated to improve the Fairness Score by 6.5 points while maintaining 97.4% model accuracy.'}
+            </p>
+            <Link href="/mitigation" style={{
+              display: 'block', width: '100%', textAlign: 'center',
+              background: 'var(--lime)', color: 'var(--ink)',
+              borderRadius: 999, padding: '11px 0', fontSize: 13, fontWeight: 800,
+              textDecoration: 'none',
+              transition: 'transform 0.3s var(--ease-spring), box-shadow 0.3s',
+            }}>
+              Apply Mitigation Path
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="animate-fade-in delay-500" style={{ marginTop: 48, paddingTop: 20, borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+        <em style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 320, lineHeight: 1.6 }}>
+          &ldquo;Transparency is not a byproduct of AI development; it is the foundation upon which trust is built.&rdquo;
+        </em>
+        <div style={{ textAlign: 'right', fontSize: 11 }}>
+          <div style={{ color: 'var(--muted)', marginBottom: 8 }}>© 2024 BiasLens AI Research Division</div>
+          <div style={{ display: 'flex', gap: 16 }}>
+            {['METHODOLOGY', 'PRIVACY', 'CONTACT'].map((l) => (
+              <a key={l} href="#" style={{ color: 'var(--muted)', textDecoration: 'none', fontWeight: 700, letterSpacing: '0.06em', transition: 'color 0.2s' }}>{l}</a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

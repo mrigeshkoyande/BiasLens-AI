@@ -1,47 +1,44 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Epilogue } from "next/font/google";
 import "./globals.css";
+import TopNav from "@/components/layout/TopNav";
 import Sidebar from "@/components/layout/Sidebar";
+import ChatPanel from "@/components/chat/ChatPanel";
+import { PipelineProvider } from "@/lib/pipeline";
 
-const inter = Inter({
-  variable: "--font-inter",
+const epilogue = Epilogue({
+  variable: "--font-epilogue",
   subsets: ["latin"],
-  display: "swap",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains",
-  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
   display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "BiasLens AI — Fairness Auditing Platform",
   description:
-    "AI-powered platform to detect, explain, and fix bias in datasets and machine learning models. Audit fairness, generate compliance reports, and simulate the real-world impact of algorithmic bias.",
-  keywords: ["AI fairness", "bias detection", "algorithmic bias", "ML auditing", "ethical AI", "fairness metrics"],
-  authors: [{ name: "BiasLens AI" }],
-  openGraph: {
-    title: "BiasLens AI — Fairness Auditing Platform",
-    description: "Detect, explain, and fix bias in your AI systems.",
-    type: "website",
-  },
+    "AI-powered platform to detect, explain, and fix bias in datasets and machine learning models.",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}>
-        <div className="sidebar-layout bg-grid" style={{ backgroundColor: "#0a0a0f" }}>
-          <Sidebar />
-          <main className="main-content">
-            {children}
-          </main>
-        </div>
+    <html lang="en">
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <meta name="theme-color" content="#fff8d9" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+        />
+      </head>
+      <body className={`${epilogue.variable} font-epilogue antialiased`}>
+        <PipelineProvider>
+          <TopNav />
+          <div className="app-shell">
+            <Sidebar />
+            <main className="app-main">{children}</main>
+          </div>
+          <ChatPanel />
+        </PipelineProvider>
       </body>
     </html>
   );
