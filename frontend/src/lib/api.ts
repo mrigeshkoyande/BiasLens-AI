@@ -4,6 +4,7 @@
  */
 
 import { auth } from './firebase';
+import type { RiskLevel } from './types';
 
 const API_BASE =
   (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
@@ -86,7 +87,7 @@ export interface ApiFairnessMetrics {
   average_odds: number;
   fairness_score: number;
   risk_score: number;
-  risk_level: 'Low' | 'Medium' | 'High';
+  risk_level: RiskLevel;
   group_metrics: ApiGroupMetric[];
 }
 
@@ -95,7 +96,7 @@ export interface ApiAnalysisResponse {
   dataset_id: string;
   metrics: ApiFairnessMetrics;
   risk_score: number;
-  risk_level: 'Low' | 'Medium' | 'High';
+  risk_level: RiskLevel;
   model_accuracy: number;
 }
 
@@ -264,7 +265,7 @@ export interface ApiReportItem {
   id: string;
   dataset_name: string;
   fairness_score: number;
-  risk_level: 'Low' | 'Medium' | 'High';
+  risk_level: RiskLevel;
   created_at: string;
 }
 

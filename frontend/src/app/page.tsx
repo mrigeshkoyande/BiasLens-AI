@@ -24,19 +24,19 @@ function RingGauge({ score, size = 160 }: { score: number; size?: number }) {
 
 export default function DashboardPage() {
   const pipeline = usePipeline();
-  const score = pipeline.fairnessScore ?? 85;
-  const hasData = pipeline.hasPipeline && pipeline.analysisId;
-  const riskLevel = (pipeline.riskLevel?.toLowerCase() as RiskLevel) ?? 'low';
-  const analysisId = pipeline.analysisId;
+  const score = pipeline.fairness_score ?? 85;
+  const hasData = pipeline.hasPipeline && pipeline.analysis_id;
+  const riskLevel = pipeline.risk_level ?? 'Low';
+  const analysis_id = pipeline.analysis_id;
 
   const [drivers, setDrivers] = useState<{ label: string; pct: string }[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState(false);
 
   useEffect(() => {
-    if (!analysisId) return;
+    if (!analysis_id) return;
     setLoadingDrivers(true);
     import('@/lib/api').then(({ explainBias }) => {
-      explainBias(analysisId)
+      explainBias(analysis_id)
         .then(res => {
           const top3 = res.feature_importance.slice(0, 3).map(f => ({
             label: f.feature,
@@ -46,7 +46,7 @@ export default function DashboardPage() {
         })
         .finally(() => setLoadingDrivers(false));
     });
-  }, [analysisId]);
+  }, [analysis_id]);
 
   return (
     <div className="page-shell">
@@ -87,7 +87,7 @@ export default function DashboardPage() {
             </h2>
             <p style={{ fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.65, marginBottom: 18 }}>
               {hasData
-                ? `The model shows a fairness score of ${Math.round(score)}/100 on ${pipeline.filename}. ${riskLevel === 'high' ? 'High risk bias detected — immediate mitigation recommended.' : riskLevel === 'medium' ? 'Moderate skew detected across sensitive attribute groups.' : 'Fairness metrics are within acceptable bounds.'}`
+                ? `The model shows a fairness score of ${Math.round(score)}/100 on ${pipeline.filename}. ${riskLevel === 'High' ? 'High risk bias detected — immediate mitigation recommended.' : riskLevel === 'Medium' ? 'Moderate skew detected across sensitive attribute groups.' : 'Fairness metrics are within acceptable bounds.'}`
                 : 'The model shows a statistically significant preference for candidates with over 10 years of experience in technical roles, which correlates with a systemic bias against younger applicants in the "Junior Engineering" category.'}
             </p>
             <div className="responsive-grid-equal">
@@ -126,8 +126,8 @@ export default function DashboardPage() {
 
             {/* Bar chart */}
             <div style={{ height: 120, display: 'flex', alignItems: 'flex-end', gap: 'clamp(6px, 1.5vw, 12px)', marginTop: 20, borderBottom: '1px solid var(--line)', paddingBottom: 8 }}>
-              {hasData && pipeline.groupMetrics && pipeline.groupMetrics.length > 0 ? (
-                pipeline.groupMetrics.map((m: any, i: number) => (
+              {hasData && pipeline.group_metrics && pipeline.group_metrics.length > 0 ? (
+                pipeline.group_metrics.map((m: any, i: number) => (
                   <div key={m.group} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                     <div style={{
                       width: '100%', height: Math.round(m.selection_rate * 100) + '%', borderRadius: '6px 6px 0 0',
@@ -233,7 +233,7 @@ export default function DashboardPage() {
             <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--lime)', marginBottom: 10 }}>Recommended Mitigation</div>
             <p style={{ fontSize: 12, color: '#b8c870', lineHeight: 1.6, marginBottom: 16 }}>
               {hasData
-                ? `Applying "Adversarial Debiasing" on ${pipeline.sensitiveColumns[0] ?? 'the primary sensitive feature'} is estimated to improve the Fairness Score by 6.5 points while maintaining 97.4% model accuracy.`
+                ? `Applying "Adversarial Debiasing" on ${pipeline.sensitive_columns[0] ?? 'the primary sensitive feature'} is estimated to improve the Fairness Score by 6.5 points while maintaining 97.4% model accuracy.`
                 : 'Implementing "Adversarial Debiasing" on the University Ranking feature is estimated to improve the Fairness Score by 6.5 points while maintaining 97.4% model accuracy.'}
             </p>
             <Link href="/mitigation" style={{

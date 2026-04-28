@@ -8,17 +8,17 @@ interface RiskBadgeProps {
 }
 
 const configs = {
-  low: {
+  Low: {
     label: 'Low Risk',
     className: 'risk-badge-low',
     dot: 'bg-[#10b981]',
   },
-  medium: {
+  Medium: {
     label: 'Medium Risk',
     className: 'risk-badge-medium',
     dot: 'bg-[#f59e0b]',
   },
-  high: {
+  High: {
     label: 'High Risk',
     className: 'risk-badge-high',
     dot: 'bg-[#ef4444]',

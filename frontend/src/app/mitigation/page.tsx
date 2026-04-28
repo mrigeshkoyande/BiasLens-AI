@@ -18,14 +18,14 @@ function Sk({ style }: { style?: React.CSSProperties }) {
 export default function MitigationPage() {
   const router = useRouter();
   const pipeline = usePipeline();
-  const { analysisId } = pipeline;
+  const { analysis_id: analysisId } = pipeline;
   const [selected, setSelected] = useState('reweight');
   const [applying, setApplying] = useState(false);
   const [result, setResult] = useState<ApiFixResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const strategy = STRATEGIES.find(s => s.id === selected) ?? STRATEGIES[0];
-  const baseFairness = Math.round(pipeline.fairnessScore ?? 67);
+  const baseFairness = Math.round(pipeline.fairness_score ?? 67);
   const baseAcc = 94.2;
 
   if (!analysisId) {

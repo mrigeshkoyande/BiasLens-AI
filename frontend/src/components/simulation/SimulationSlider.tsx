@@ -10,17 +10,17 @@ type AspectRatio = '1:1' | '4:3' | '16:9' | '9:16';
 type ViewMode = 'web' | 'mobile';
 
 function computeSimulation(n: number, base: SimulationResult): SimulationResult {
-  const ratio = n / base.totalApplicants;
-  const unfairRejections = Math.round(base.unfairRejections * ratio);
-  const costOfBias = Math.round(base.costOfBias * ratio);
-  const affectedGroups = base.affectedGroups.map((g) => ({
+  const ratio = n / base.total_applicants;
+  const unfairRejections = Math.round(base.unfair_rejections * ratio);
+  const costOfBias = Math.round(base.cost_of_bias * ratio);
+  const affectedGroups = base.affected_groups.map((g) => ({
     ...g,
     affected: Math.round(g.affected * ratio),
   }));
   const disadvantagedGroup = affectedGroups[0]?.group || 'protected groups';
   const affectedCount = affectedGroups[0]?.affected || unfairRejections;
   const plainLanguageImpact = `At a scale of ${n.toLocaleString()} applicants, approximately ${affectedCount.toLocaleString()} individuals from "${disadvantagedGroup}" would be unfairly disadvantaged — costing an estimated $${(costOfBias / 1000).toFixed(0)}K in litigation risk.`;
-  return { totalApplicants: n, unfairRejections, costOfBias, affectedGroups, plainLanguageImpact };
+  return { total_applicants: n, unfair_rejections: unfairRejections, cost_of_bias: costOfBias, affected_groups: affectedGroups, plain_language_impact: plainLanguageImpact };
 }
 
 const MARKS = [1_000, 5_000, 10_000, 25_000, 50_000, 100_000];
@@ -33,7 +33,7 @@ const RATIO_DIMS: Record<AspectRatio, { w: number; h: number; label: string }> =
 
 /* ── Sandbox simulation display ─────────────────────────────────── */
 function SimulationSandbox({ result, viewMode }: { result: SimulationResult; viewMode: ViewMode }) {
-  const maxRejections = Math.max(result.unfairRejections, 1);
+  const maxRejections = Math.max(result.unfair_rejections, 1);
 
   return (
     <div
@@ -56,7 +56,7 @@ function SimulationSandbox({ result, viewMode }: { result: SimulationResult; vie
             Bias Impact · Sandbox
           </div>
           <div style={{ fontSize: viewMode === 'mobile' ? 10 : 12, color: 'var(--muted)', marginTop: 2 }}>
-            {result.totalApplicants.toLocaleString()} applicants simulated
+            {result.total_applicants.toLocaleString()} applicants simulated
           </div>
         </div>
         <span
@@ -73,8 +73,8 @@ function SimulationSandbox({ result, viewMode }: { result: SimulationResult; vie
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         {[
-          { label: 'Unfair Rejections', value: result.unfairRejections.toLocaleString(), color: '#ef4444', icon: '⚠' },
-          { label: 'Cost of Bias', value: `$${(result.costOfBias / 1000).toFixed(0)}K`, color: '#f59e0b', icon: '💸' },
+          { label: 'Unfair Rejections', value: result.unfair_rejections.toLocaleString(), color: '#ef4444', icon: '⚠' },
+          { label: 'Cost of Bias', value: `$${(result.cost_of_bias / 1000).toFixed(0)}K`, color: '#f59e0b', icon: '💸' },
         ].map(({ label, value, color, icon }) => (
           <div
             key={label}
@@ -102,12 +102,12 @@ function SimulationSandbox({ result, viewMode }: { result: SimulationResult; vie
         <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
           Affected Groups
         </div>
-        {result.affectedGroups.length === 0 ? (
+        {result.affected_groups.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--muted)', fontSize: 13 }}>
             No group disparity detected ✓
           </div>
         ) : (
-          result.affectedGroups.map((g, i) => {
+          result.affected_groups.map((g, i) => {
             const pct = Math.min((g.affected / maxRejections) * 100, 100);
             const gradients = [
               'linear-gradient(90deg, #ef4444, #f59e0b)',
@@ -157,7 +157,7 @@ function SimulationSandbox({ result, viewMode }: { result: SimulationResult; vie
           fontStyle: 'italic',
         }}
       >
-        "{result.plainLanguageImpact}"
+        "{result.plain_language_impact}"
       </div>
     </div>
   );

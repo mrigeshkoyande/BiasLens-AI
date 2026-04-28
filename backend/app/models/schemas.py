@@ -67,6 +67,7 @@ class FairnessMetrics(BaseModel):
 
 
 class AnalysisResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
     analysis_id: str
     dataset_id: str
     metrics: FairnessMetrics

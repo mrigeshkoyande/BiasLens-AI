@@ -11,7 +11,7 @@ function Sk({ style }: { style?: React.CSSProperties }) {
 
 export default function SimulationPage() {
   const router = useRouter();
-  const { analysisId, filename } = usePipeline();
+  const { analysis_id: analysisId, filename } = usePipeline();
   const [data, setData] = useState<ApiSimulationResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,15 +84,15 @@ export default function SimulationPage() {
           ) : data ? (
             <SimulationSlider
               baseResult={{
-                totalApplicants: data.total_applicants,
-                unfairRejections: data.unfair_rejections,
-                costOfBias: data.cost_of_bias,
-                affectedGroups: data.affected_groups.map((g) => ({
+                total_applicants: data.total_applicants,
+                unfair_rejections: data.unfair_rejections,
+                cost_of_bias: data.cost_of_bias,
+                affected_groups: data.affected_groups.map((g) => ({
                   group: g.group,
                   affected: g.affected,
                   percentage: g.percentage,
                 })),
-                plainLanguageImpact: data.plain_language_impact,
+                plain_language_impact: data.plain_language_impact,
               }}
             />
           ) : null}

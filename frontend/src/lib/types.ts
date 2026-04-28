@@ -1,21 +1,21 @@
-export type RiskLevel = 'low' | 'medium' | 'high';
+export type RiskLevel = 'Low' | 'Medium' | 'High';
 
 export interface FairnessMetrics {
-  demographicParity: number;
-  equalOpportunity: number;
-  disparateImpact: number;
-  averageOdds: number;
-  fairnessScore: number;
-  riskScore: number;
-  riskLevel: RiskLevel;
+  demographic_parity: number;
+  equal_opportunity: number;
+  disparate_impact: number;
+  average_odds: number;
+  fairness_score: number;
+  risk_score: number;
+  risk_level: RiskLevel;
 }
 
 export interface GroupMetric {
   group: string;
-  selectionRate: number;
+  selection_rate: number;
   accuracy: number;
   count: number;
-  color: string;
+  color?: string;
 }
 
 export interface BiasExplanation {
@@ -30,49 +30,49 @@ export interface BiasExplanation {
 export interface FeatureImportance {
   feature: string;
   importance: number;
-  shapValue: number;
+  shap_value: number;
   direction: 'increases_bias' | 'decreases_bias' | 'neutral';
 }
 
 export interface SimulationResult {
-  totalApplicants: number;
-  unfairRejections: number;
-  affectedGroups: {
+  total_applicants: number;
+  unfair_rejections: number;
+  affected_groups: {
     group: string;
     affected: number;
     percentage: number;
   }[];
-  costOfBias: number;
-  plainLanguageImpact: string;
+  cost_of_bias: number;
+  plain_language_impact: string;
 }
 
 export interface FixStrategy {
   id: string;
   name: string;
   description: string;
-  expectedImprovement: number;
+  expected_improvement: number;
   difficulty: 'easy' | 'medium' | 'hard';
   type: 'reweight' | 'remove_sensitive' | 'fairness_constraint' | 'threshold_adjust';
-  beforeScore: number;
-  afterScore: number;
-  beforeMetrics: Partial<FairnessMetrics>;
-  afterMetrics: Partial<FairnessMetrics>;
+  before_score: number;
+  after_score: number;
+  before_metrics: Partial<FairnessMetrics>;
+  after_metrics: Partial<FairnessMetrics>;
 }
 
 export interface DatasetColumn {
   name: string;
   type: 'numeric' | 'categorical' | 'binary';
-  isSensitive: boolean;
-  isTarget: boolean;
-  uniqueValues: number;
-  nullCount: number;
+  is_sensitive: boolean;
+  is_target: boolean;
+  unique_values: number;
+  null_count: number;
 }
 
 export interface DatasetInfo {
   id: string;
   filename: string;
-  rowCount: number;
-  columnCount: number;
+  row_count: number;
+  column_count: number;
   columns: DatasetColumn[];
   preview: Record<string, string | number>[];
 }
@@ -80,10 +80,10 @@ export interface DatasetInfo {
 export interface Report {
   id: string;
   title: string;
-  createdAt: string;
-  riskLevel: RiskLevel;
-  fairnessScore: number;
-  datasetName: string;
+  created_at: string;
+  risk_level: RiskLevel;
+  fairness_score: number;
+  dataset_name: string;
   status: 'ready' | 'generating';
 }
 
@@ -97,11 +97,11 @@ export interface ChatMessage {
 export interface AnalysisState {
   dataset: DatasetInfo | null;
   metrics: FairnessMetrics | null;
-  groupMetrics: GroupMetric[];
+  group_metrics: GroupMetric[];
   explanations: BiasExplanation[];
-  featureImportance: FeatureImportance[];
+  feature_importance: FeatureImportance[];
   simulation: SimulationResult | null;
-  fixStrategies: FixStrategy[];
-  isAnalyzing: boolean;
-  hasResults: boolean;
+  fix_strategies: FixStrategy[];
+  is_analyzing: boolean;
+  has_results: boolean;
 }

@@ -26,7 +26,7 @@ function renderMarkdown(text: string) {
 }
 
 export default function ChatPanel() {
-  const { analysisId } = usePipeline();
+  const { analysis_id } = usePipeline();
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [input, setInput] = useState('');
@@ -60,7 +60,7 @@ export default function ChatPanel() {
     setLoading(true);
 
     try {
-      const res = await sendChatMessage(text, analysisId || undefined);
+      const res = await sendChatMessage(text, analysis_id || undefined);
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -201,7 +201,7 @@ export default function ChatPanel() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 1 }}>
                 <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--olive-deep)', display: 'inline-block' }} />
                 <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--olive-deep)' }}>
-                  {analysisId ? 'Contextual Mode' : 'Online'}
+                  {analysis_id ? 'Contextual Mode' : 'Online'}
                 </span>
               </div>
             </div>

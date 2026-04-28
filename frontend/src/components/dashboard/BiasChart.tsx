@@ -9,7 +9,7 @@ import { fairnessTrendData, radarData } from '@/lib/mockData';
 import { useState } from 'react';
 
 interface BiasChartProps {
-  groupMetrics: GroupMetric[];
+  group_metrics: GroupMetric[];
 }
 
 type ChartTab = 'groups' | 'radar' | 'trend';
@@ -30,7 +30,7 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
   );
 };
 
-export default function BiasChart({ groupMetrics }: BiasChartProps) {
+export default function BiasChart({ group_metrics }: BiasChartProps) {
   const [activeTab, setActiveTab] = useState<ChartTab>('groups');
 
   const tabs: { id: ChartTab; label: string }[] = [
@@ -68,7 +68,7 @@ export default function BiasChart({ groupMetrics }: BiasChartProps) {
       <div className="h-[260px]">
         {activeTab === 'groups' && (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={groupMetrics} barSize={28} barGap={4}>
+            <BarChart data={group_metrics} barSize={28} barGap={4}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
               <XAxis dataKey="group" tick={{ fill: '#475569', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#475569', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v * 100).toFixed(0)}%`} domain={[0, 1]} />

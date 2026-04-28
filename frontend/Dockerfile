@@ -1,34 +1,24 @@
-# Stage 1: Build
-FROM node:20-alpine AS builder
+FROM node:20-alpine
+
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies first (better caching)
 COPY package*.json ./
 RUN npm install
 
-# Copy source and build
+# Copy everything else
 COPY . .
+
+# Environment variables
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-
-# Ignore lint errors during build if necessary to speed up/ensure success
 ENV NEXT_TELEMETRY_DISABLED 1
+
+# Build the app
 RUN npm run build
-
-# Stage 2: Run
-FROM node:20-alpine AS runner
-WORKDIR /app
-
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
-
-# Copy only necessary files
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
 
 EXPOSE 3000
 ENV PORT 3000
 
-# Next.js standalone output uses 'server.js'
-CMD ["node", "server.js"]
+# Regular next start
+CMD ["npm", "start"]

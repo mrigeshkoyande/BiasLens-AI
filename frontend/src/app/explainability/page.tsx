@@ -10,7 +10,7 @@ function Sk({ style }: { style?: React.CSSProperties }) {
 
 export default function ExplainabilityPage() {
   const router = useRouter();
-  const { analysisId } = usePipeline();
+  const { analysis_id: analysisId } = usePipeline();
   const [data, setData] = useState<ApiExplanationResponse | null>(null);
   const [sample, setSample] = useState<ApiSampleScrutinyResponse | null>(null);
   const [loading, setLoading] = useState(false);

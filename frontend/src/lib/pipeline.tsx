@@ -9,37 +9,38 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import type { ApiColumnInfo } from './api';
+import type { RiskLevel } from './types';
 
 // ─── State shape ──────────────────────────────────────────────────────────────
 
 interface PipelineState {
-  datasetId: string | null;
-  analysisId: string | null;
+  dataset_id: string | null;
+  analysis_id: string | null;
   filename: string | null;
-  rowCount: number | null;
+  row_count: number | null;
   columns: ApiColumnInfo[];
-  targetColumn: string | null;
-  sensitiveColumns: string[];
-  fairnessScore: number | null;
-  riskScore: number | null;
-  riskLevel: 'Low' | 'Medium' | 'High' | null;
-  groupMetrics: any[];
+  target_column: string | null;
+  sensitive_columns: string[];
+  fairness_score: number | null;
+  risk_score: number | null;
+  risk_level: RiskLevel | null;
+  group_metrics: any[];
 }
 
 interface PipelineContext extends PipelineState {
   setDatasetResult: (
-    datasetId: string,
+    dataset_id: string,
     filename: string,
-    rowCount: number,
+    row_count: number,
     columns: ApiColumnInfo[]
   ) => void;
-  setAnalysisConfig: (targetColumn: string, sensitiveColumns: string[]) => void;
+  setAnalysisConfig: (target_column: string, sensitive_columns: string[]) => void;
   setAnalysisResult: (
-    analysisId: string,
-    fairnessScore: number,
-    riskScore: number,
-    riskLevel: 'Low' | 'Medium' | 'High',
-    groupMetrics: any[]
+    analysis_id: string,
+    fairness_score: number,
+    risk_score: number,
+    risk_level: RiskLevel,
+    group_metrics: any[]
   ) => void;
   clearPipeline: () => void;
   hasPipeline: boolean;
@@ -52,17 +53,17 @@ const PipelineCtx = createContext<PipelineContext | null>(null);
 const STORAGE_KEY = 'biaslens_pipeline';
 
 const DEFAULT_STATE: PipelineState = {
-  datasetId: null,
-  analysisId: null,
+  dataset_id: null,
+  analysis_id: null,
   filename: null,
-  rowCount: null,
+  row_count: null,
   columns: [],
-  targetColumn: null,
-  sensitiveColumns: [],
-  fairnessScore: null,
-  riskScore: null,
-  riskLevel: null,
-  groupMetrics: [],
+  target_column: null,
+  sensitive_columns: [],
+  fairness_score: null,
+  risk_score: null,
+  risk_level: null,
+  group_metrics: [],
 };
 
 function loadFromStorage(): PipelineState {
@@ -104,34 +105,34 @@ export function PipelineProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setDatasetResult = useCallback(
-    (datasetId: string, filename: string, rowCount: number, columns: ApiColumnInfo[]) => {
+    (dataset_id: string, filename: string, row_count: number, columns: ApiColumnInfo[]) => {
       update({
-        datasetId,
+        dataset_id,
         filename,
-        rowCount,
+        row_count,
         columns,
         // Reset downstream state when a new dataset is uploaded
-        analysisId: null,
-        targetColumn: null,
-        sensitiveColumns: [],
-        fairnessScore: null,
-        riskScore: null,
-        riskLevel: null,
+        analysis_id: null,
+        target_column: null,
+        sensitive_columns: [],
+        fairness_score: null,
+        risk_score: null,
+        risk_level: null,
       });
     },
     [update]
   );
 
   const setAnalysisConfig = useCallback(
-    (targetColumn: string, sensitiveColumns: string[]) => {
-      update({ targetColumn, sensitiveColumns });
+    (target_column: string, sensitive_columns: string[]) => {
+      update({ target_column, sensitive_columns });
     },
     [update]
   );
 
   const setAnalysisResult = useCallback(
-    (analysisId: string, fairnessScore: number, riskScore: number, riskLevel: 'Low' | 'Medium' | 'High', groupMetrics: any[]) => {
-      update({ analysisId, fairnessScore, riskScore, riskLevel, groupMetrics });
+    (analysis_id: string, fairness_score: number, risk_score: number, risk_level: RiskLevel, group_metrics: any[]) => {
+      update({ analysis_id, fairness_score, risk_score, risk_level, group_metrics });
     },
     [update]
   );
@@ -147,7 +148,7 @@ export function PipelineProvider({ children }: { children: ReactNode }) {
     setAnalysisConfig,
     setAnalysisResult,
     clearPipeline,
-    hasPipeline: Boolean(state.datasetId),
+    hasPipeline: Boolean(state.dataset_id),
   };
 
   return <PipelineCtx.Provider value={value}>{children}</PipelineCtx.Provider>;

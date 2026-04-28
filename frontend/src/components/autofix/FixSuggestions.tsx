@@ -18,7 +18,7 @@ function StrategyCard({ strategy, index }: { strategy: FixStrategy; index: numbe
   const [expanded, setExpanded] = useState(index === 0);
   const [applied, setApplied] = useState(false);
   const diffConfig = difficultyConfig[strategy.difficulty];
-  const improvement = strategy.afterScore - strategy.beforeScore;
+  const improvement = strategy.after_score - strategy.before_score;
 
   return (
     <div
@@ -73,8 +73,8 @@ function StrategyCard({ strategy, index }: { strategy: FixStrategy; index: numbe
           <div className="flex items-center gap-4 mb-4">
             <div className="flex-1 text-center">
               <div className="text-[10px] text-[#475569] mb-2 uppercase tracking-wider">Before</div>
-              <ProgressRing score={strategy.beforeScore} size={80} strokeWidth={7} showLabel={false} />
-              <div className="text-[13px] font-bold font-mono text-[#ef4444] mt-1">{strategy.beforeScore}</div>
+              <ProgressRing score={strategy.before_score} size={80} strokeWidth={7} showLabel={false} />
+              <div className="text-[13px] font-bold font-mono text-[#ef4444] mt-1">{strategy.before_score}</div>
             </div>
 
             <div className="flex flex-col items-center gap-1">
@@ -84,8 +84,8 @@ function StrategyCard({ strategy, index }: { strategy: FixStrategy; index: numbe
 
             <div className="flex-1 text-center">
               <div className="text-[10px] text-[#475569] mb-2 uppercase tracking-wider">After</div>
-              <ProgressRing score={strategy.afterScore} size={80} strokeWidth={7} showLabel={false} />
-              <div className="text-[13px] font-bold font-mono text-[#10b981] mt-1">{strategy.afterScore}</div>
+              <ProgressRing score={strategy.after_score} size={80} strokeWidth={7} showLabel={false} />
+              <div className="text-[13px] font-bold font-mono text-[#10b981] mt-1">{strategy.after_score}</div>
             </div>
           </div>
 

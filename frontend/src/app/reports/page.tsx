@@ -10,9 +10,9 @@ function Sk({ style }: { style?: React.CSSProperties }) {
 
 export default function ReportsPage() {
   const pipeline = usePipeline();
-  const { analysisId } = pipeline;
-  const pipelineScore = pipeline.fairnessScore;
-  const pipelineRisk = pipeline.riskLevel;
+  const { analysis_id: analysisId } = pipeline;
+  const pipelineScore = pipeline.fairness_score;
+  const pipelineRisk = pipeline.risk_level;
   const [history, setHistory] = useState<ApiReportItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -55,8 +55,8 @@ export default function ReportsPage() {
     }
   };
 
-  const baseScore = pipeline.fairnessScore ?? 85;
-  const hasData = !!pipeline.analysisId;
+  const baseScore = pipeline.fairness_score ?? 85;
+  const hasData = !!pipeline.analysis_id;
 
   const complianceRows = [
     { framework: 'EU AI Act', requirement: 'Transparency & Explainability', status: hasData ? (baseScore > 80 ? 'Passed' : 'Warning') : 'Passed', score: hasData ? `${Math.round(baseScore * 0.94)}/100` : '94/100' },
@@ -159,8 +159,8 @@ export default function ReportsPage() {
                         <span style={{
                           display:'inline-flex', alignItems:'center', gap:5,
                           padding:'3px 10px', borderRadius:999, fontSize:10, fontWeight:800,
-                          background: item.risk_level.toLowerCase() === 'low' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                          color: item.risk_level.toLowerCase() === 'low' ? '#10b981' : '#ef4444',
+                          background: item.risk_level === 'Low' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                          color: item.risk_level === 'Low' ? '#10b981' : '#ef4444',
                         }}>
                           {item.risk_level.toUpperCase()}
                         </span>
@@ -251,7 +251,7 @@ export default function ReportsPage() {
           {/* Quick metrics */}
           {[
             { label:'Overall Score',      value: pipelineScore ? `${Math.round(pipelineScore)}/100` : '—',     pass: (pipelineScore ?? 0) >= 70 },
-            { label:'Risk Level',         value: pipelineRisk ? pipelineRisk.toUpperCase() : '—',              pass: pipelineRisk?.toLowerCase() === 'low' },
+            { label:'Risk Level',         value: pipelineRisk ? pipelineRisk : '—',              pass: pipelineRisk === 'Low' },
             { label:'Frameworks Checked', value:'4 / 4',                                                        pass: true },
           ].map(m=>(
             <div key={m.label} style={{ padding:'16px 20px', borderRadius:16, background:'var(--surface)', border:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>

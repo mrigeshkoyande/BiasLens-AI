@@ -11,7 +11,7 @@ function Sk({ style }: { style?: React.CSSProperties }) {
 export default function AnalysisPage() {
   const router = useRouter();
   const pipeline = usePipeline();
-  const { analysisId, datasetId, targetColumn, sensitiveColumns } = pipeline;
+  const { analysis_id: analysisId, dataset_id: datasetId, target_column: targetColumn, sensitive_columns: sensitiveColumns } = pipeline;
   const [data, setData] = useState<ApiAnalysisResponse | null>(null);
   const [insights, setInsights] = useState<InsightObservation[]>([]);
   const [executiveSummary, setExecutiveSummary] = useState<string | null>(null);
@@ -86,7 +86,7 @@ export default function AnalysisPage() {
   }
 
   const metrics: ApiFairnessMetrics | null = data?.metrics ?? null;
-  const score = metrics?.fairness_score ?? pipeline.fairnessScore ?? 0;
+  const score = metrics?.fairness_score ?? pipeline.fairness_score ?? 0;
 
   const cohortRows = metrics?.group_metrics?.length
     ? metrics.group_metrics
@@ -125,7 +125,7 @@ export default function AnalysisPage() {
             sub: loading ? '' : `Current status: ${data?.risk_level ?? 'Low'} Risk`,
             isRisk: true 
           },
-          { label:'SAMPLE SIZE', value:loading ? null : pipeline.rowCount ? `${(pipeline.rowCount/1000).toFixed(1)}K` : '1.2K', sub:'Records processed in this audit run.' },
+          { label:'SAMPLE SIZE', value:loading ? null : pipeline.row_count ? `${(pipeline.row_count/1000).toFixed(1)}K` : '1.2K', sub:'Records processed in this audit run.' },
           { label:'FAIRNESS METRIC', value:loading ? null : metrics?.disparate_impact?.toFixed(2) ?? '0.86', sub:'Disparate Impact ratio within monitoring threshold.' },
         ].map(m => (
           <div key={m.label} className="soft-panel" style={{ padding:'20px 22px', border: m.isRisk && !loading ? `1px solid ${ (data?.risk_level === 'High' ? '#ef4444' : data?.risk_level === 'Medium' ? '#f59e0b' : 'var(--line)') }` : undefined }}>
