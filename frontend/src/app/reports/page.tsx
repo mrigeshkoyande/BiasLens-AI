@@ -159,8 +159,8 @@ export default function ReportsPage() {
                         <span style={{
                           display:'inline-flex', alignItems:'center', gap:5,
                           padding:'3px 10px', borderRadius:999, fontSize:10, fontWeight:800,
-                          background: item.risk_level === 'low' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                          color: item.risk_level === 'low' ? '#10b981' : '#ef4444',
+                          background: item.risk_level.toLowerCase() === 'low' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                          color: item.risk_level.toLowerCase() === 'low' ? '#10b981' : '#ef4444',
                         }}>
                           {item.risk_level.toUpperCase()}
                         </span>
@@ -177,7 +177,7 @@ export default function ReportsPage() {
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={5} style={{ textAlign:'center', py:20, color:'var(--muted)', fontSize:12 }}>No previous audits found.</td>
+                      <td colSpan={5} style={{ textAlign:'center', padding:'20px 0', color:'var(--muted)', fontSize:12 }}>No previous audits found.</td>
                     </tr>
                   )}
                 </tbody>
@@ -234,7 +234,7 @@ export default function ReportsPage() {
                     ? 'Your PDF report has been generated and downloaded. It includes all compliance annexes and SHAP evidence.'
                     : 'Creates a court-ready PDF with all fairness metrics, SHAP visualizations, and compliance certificates.'}
                 </p>
-                <button onClick={handleGenerate} disabled={generating} style={{
+                <button onClick={() => handleGenerate()} disabled={generating} style={{
                   width:'100%', background: generated ? 'rgba(185,245,0,0.15)' : 'var(--lime)', color: generated ? 'var(--lime)' : 'var(--ink)',
                   border: generated ? '1px solid rgba(185,245,0,0.4)' : 'none', borderRadius:999, padding:'12px 0',
                   fontWeight:800, fontSize:13, letterSpacing:'0.06em', cursor: generating ? 'not-allowed' : 'pointer', opacity: generating ? 0.8 : 1,
@@ -251,7 +251,7 @@ export default function ReportsPage() {
           {/* Quick metrics */}
           {[
             { label:'Overall Score',      value: pipelineScore ? `${Math.round(pipelineScore)}/100` : '—',     pass: (pipelineScore ?? 0) >= 70 },
-            { label:'Risk Level',         value: pipelineRisk ? pipelineRisk.toUpperCase() : '—',              pass: pipelineRisk === 'low' },
+            { label:'Risk Level',         value: pipelineRisk ? pipelineRisk.toUpperCase() : '—',              pass: pipelineRisk?.toLowerCase() === 'low' },
             { label:'Frameworks Checked', value:'4 / 4',                                                        pass: true },
           ].map(m=>(
             <div key={m.label} style={{ padding:'16px 20px', borderRadius:16, background:'var(--surface)', border:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>

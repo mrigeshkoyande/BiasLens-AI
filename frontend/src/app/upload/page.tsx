@@ -34,7 +34,7 @@ export default function UploadPage() {
       positive_label: 1,
     });
     setProgress(100);
-    setAnalysisResult(analysisRes.analysis_id, analysisRes.metrics.fairness_score, analysisRes.risk_score, analysisRes.risk_level);
+    setAnalysisResult(analysisRes.analysis_id, analysisRes.metrics.fairness_score, analysisRes.risk_score, analysisRes.risk_level, analysisRes.metrics.group_metrics);
     setTimeout(() => router.push('/analysis'), 300);
   }, [setDatasetResult, setAnalysisConfig, setAnalysisResult, router]);
 

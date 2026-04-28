@@ -60,7 +60,7 @@ export default function ChatPanel() {
     setLoading(true);
 
     try {
-      const res = await sendChatMessage(text, analysisId);
+      const res = await sendChatMessage(text, analysisId || undefined);
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',

@@ -50,7 +50,7 @@ export default function AnalysisPage() {
       analyzeDataset({ dataset_id: datasetId, target_column: targetColumn, sensitive_columns: sensitiveColumns, positive_label: 1 })
         .then(res => {
           setData(res);
-          pipeline.setAnalysisResult(res.analysis_id, res.metrics.fairness_score, res.risk_score, res.risk_level);
+          pipeline.setAnalysisResult(res.analysis_id, res.metrics.fairness_score, res.risk_score, res.risk_level, res.metrics.group_metrics);
           setLoading(false);
         })
         .catch(err => { setError(err instanceof ApiError ? err.detail : 'Failed.'); setLoading(false); });
@@ -63,7 +63,7 @@ export default function AnalysisPage() {
       generateInsights(analysisId)
         .then(res => {
           setInsights(res.observations);
-          setExecutiveSummary(res.executive_summary);
+          setExecutiveSummary(res.executive_summary ?? null);
           setLoadingInsights(false);
         })
         .catch(() => {

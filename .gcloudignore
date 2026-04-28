@@ -1,0 +1,8 @@
+.git
+.gitignore
+backend/venv
+backend/__pycache__
+frontend/node_modules
+frontend/.next
+frontend/.vercel
+*.db

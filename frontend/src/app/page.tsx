@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePipeline } from '@/lib/pipeline';
+import type { RiskLevel } from '@/lib/types';
 
 function RingGauge({ score, size = 160 }: { score: number; size?: number }) {
   const r = size / 2 - 14;
@@ -25,7 +26,7 @@ export default function DashboardPage() {
   const pipeline = usePipeline();
   const score = pipeline.fairnessScore ?? 85;
   const hasData = pipeline.hasPipeline && pipeline.analysisId;
-  const riskLevel = pipeline.riskLevel ?? 'low';
+  const riskLevel = (pipeline.riskLevel?.toLowerCase() as RiskLevel) ?? 'low';
   const analysisId = pipeline.analysisId;
 
   const [drivers, setDrivers] = useState<{ label: string; pct: string }[]>([]);
@@ -126,11 +127,11 @@ export default function DashboardPage() {
             {/* Bar chart */}
             <div style={{ height: 120, display: 'flex', alignItems: 'flex-end', gap: 'clamp(6px, 1.5vw, 12px)', marginTop: 20, borderBottom: '1px solid var(--line)', paddingBottom: 8 }}>
               {hasData && pipeline.groupMetrics && pipeline.groupMetrics.length > 0 ? (
-                pipeline.groupMetrics.map((m, i) => (
+                pipeline.groupMetrics.map((m: any, i: number) => (
                   <div key={m.group} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                     <div style={{
-                      width: '100%', height: Math.round(m.selection_rate * 100) + '%', borderRadius: '6px 6px 0 0',
-                      background: i === 0 ? 'var(--lime)' : m.selection_rate > 0.7 ? '#c8d88a' : '#b0b880',
+                      width: '100%', height: Math.round(m.selectionRate * 100) + '%', borderRadius: '6px 6px 0 0',
+                      background: i === 0 ? 'var(--lime)' : m.selectionRate > 0.7 ? '#c8d88a' : '#b0b880',
                       transition: 'height 0.8s cubic-bezier(.22,1,.36,1)',
                     }} />
                     <div style={{ fontSize: 'clamp(7px, 1.2vw, 9px)', color: 'var(--muted)', fontWeight: 600, textAlign: 'center', letterSpacing: '0.04em', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

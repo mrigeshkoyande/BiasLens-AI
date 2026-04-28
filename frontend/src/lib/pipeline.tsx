@@ -23,6 +23,7 @@ interface PipelineState {
   fairnessScore: number | null;
   riskScore: number | null;
   riskLevel: 'Low' | 'Medium' | 'High' | null;
+  groupMetrics: any[];
 }
 
 interface PipelineContext extends PipelineState {
@@ -37,7 +38,8 @@ interface PipelineContext extends PipelineState {
     analysisId: string,
     fairnessScore: number,
     riskScore: number,
-    riskLevel: 'Low' | 'Medium' | 'High'
+    riskLevel: 'Low' | 'Medium' | 'High',
+    groupMetrics: any[]
   ) => void;
   clearPipeline: () => void;
   hasPipeline: boolean;
@@ -60,6 +62,7 @@ const DEFAULT_STATE: PipelineState = {
   fairnessScore: null,
   riskScore: null,
   riskLevel: null,
+  groupMetrics: [],
 };
 
 function loadFromStorage(): PipelineState {
@@ -127,8 +130,8 @@ export function PipelineProvider({ children }: { children: ReactNode }) {
   );
 
   const setAnalysisResult = useCallback(
-    (analysisId: string, fairnessScore: number, riskScore: number, riskLevel: 'Low' | 'Medium' | 'High') => {
-      update({ analysisId, fairnessScore, riskScore, riskLevel });
+    (analysisId: string, fairnessScore: number, riskScore: number, riskLevel: 'Low' | 'Medium' | 'High', groupMetrics: any[]) => {
+      update({ analysisId, fairnessScore, riskScore, riskLevel, groupMetrics });
     },
     [update]
   );
