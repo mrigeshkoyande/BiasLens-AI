@@ -421,6 +421,8 @@ export default function ChatPanel() {
             >
               <div style={{ display: 'flex', gap: 8 }}>
                 <input
+                  id="chat-query"
+                  name="chat-query"
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}

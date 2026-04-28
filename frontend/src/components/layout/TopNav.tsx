@@ -14,7 +14,8 @@ export default function TopNav() {
   return (
     <header className="topbar">
       <Link href="/" className="topbar-logo">
-        BiasLens AI
+        <img src="/logo.png" alt="Logo" width={32} height={32} className="logo-img" />
+        <span>BiasLens AI</span>
       </Link>
 
       <nav className="topbar-nav" aria-label="Primary">

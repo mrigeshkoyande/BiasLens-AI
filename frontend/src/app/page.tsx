@@ -1,4 +1,5 @@
 'use client';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePipeline } from '@/lib/pipeline';
 
@@ -25,6 +26,26 @@ export default function DashboardPage() {
   const score = pipeline.fairnessScore ?? 85;
   const hasData = pipeline.hasPipeline && pipeline.analysisId;
   const riskLevel = pipeline.riskLevel ?? 'low';
+  const analysisId = pipeline.analysisId;
+
+  const [drivers, setDrivers] = useState<{ label: string; pct: string }[]>([]);
+  const [loadingDrivers, setLoadingDrivers] = useState(false);
+
+  useEffect(() => {
+    if (!analysisId) return;
+    setLoadingDrivers(true);
+    import('@/lib/api').then(({ explainBias }) => {
+      explainBias(analysisId)
+        .then(res => {
+          const top3 = res.feature_importance.slice(0, 3).map(f => ({
+            label: f.feature,
+            pct: (f.importance * 100).toFixed(0) + '%'
+          }));
+          setDrivers(top3);
+        })
+        .finally(() => setLoadingDrivers(false));
+    });
+  }, [analysisId]);
 
   return (
     <div className="page-shell">
@@ -104,23 +125,34 @@ export default function DashboardPage() {
 
             {/* Bar chart */}
             <div style={{ height: 120, display: 'flex', alignItems: 'flex-end', gap: 'clamp(6px, 1.5vw, 12px)', marginTop: 20, borderBottom: '1px solid var(--line)', paddingBottom: 8 }}>
-              {[
-                { label: 'GROUP A', pct: 88 },
-                { label: 'GROUP B', pct: 72, active: true },
-                { label: 'GROUP C', pct: 65 },
-                { label: 'GROUP D', pct: 78 },
-                { label: 'GROUP E', pct: 55 },
-                { label: 'GROUP F', pct: 43 },
-              ].map((b) => (
-                <div key={b.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <div style={{
-                    width: '100%', height: b.pct + '%', borderRadius: '6px 6px 0 0',
-                    background: b.active ? 'var(--lime)' : b.pct > 70 ? '#c8d88a' : '#b0b880',
-                    transition: 'height 0.8s cubic-bezier(.22,1,.36,1)',
-                  }} />
-                  <div style={{ fontSize: 'clamp(7px, 1.2vw, 9px)', color: 'var(--muted)', fontWeight: 600, textAlign: 'center', letterSpacing: '0.04em' }}>{b.label}</div>
-                </div>
-              ))}
+              {hasData && pipeline.groupMetrics && pipeline.groupMetrics.length > 0 ? (
+                pipeline.groupMetrics.map((m, i) => (
+                  <div key={m.group} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                    <div style={{
+                      width: '100%', height: Math.round(m.selection_rate * 100) + '%', borderRadius: '6px 6px 0 0',
+                      background: i === 0 ? 'var(--lime)' : m.selection_rate > 0.7 ? '#c8d88a' : '#b0b880',
+                      transition: 'height 0.8s cubic-bezier(.22,1,.36,1)',
+                    }} />
+                    <div style={{ fontSize: 'clamp(7px, 1.2vw, 9px)', color: 'var(--muted)', fontWeight: 600, textAlign: 'center', letterSpacing: '0.04em', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {m.group}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                [
+                  { label: 'GROUP A', pct: 88 },
+                  { label: 'GROUP B', pct: 72 },
+                  { label: 'GROUP C', pct: 65 },
+                  { label: 'GROUP D', pct: 78 },
+                  { label: 'GROUP E', pct: 55 },
+                  { label: 'GROUP F', pct: 43 },
+                ].map((b) => (
+                  <div key={b.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, opacity: 0.3 }}>
+                    <div style={{ width: '100%', height: b.pct + '%', borderRadius: '6px 6px 0 0', background: 'var(--line)' }} />
+                    <div style={{ fontSize: 'clamp(7px, 1.2vw, 9px)', color: 'var(--muted)', fontWeight: 600, textAlign: 'center' }}>{b.label}</div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -130,30 +162,36 @@ export default function DashboardPage() {
               <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)' }}>Historical Audits</div>
               <Link href="/reports" style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'underline', transition: 'color 0.2s' }}>View All</Link>
             </div>
-            {[
-              { label: 'Full System Re-Scan', date: 'Oct 24, 2023 · Passed', score: '92/100', pass: true },
-              { label: 'Delta Check v2.3', date: 'Oct 12, 2023 · Warning', score: '74/100', pass: false },
-            ].map((a) => (
-              <div key={a.label} style={{
-                display: 'flex', alignItems: 'center', gap: 14, padding: '13px 0', borderBottom: '1px solid var(--line)',
-                transition: 'background 0.3s var(--ease-smooth)',
-              }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: 12, flexShrink: 0,
-                  background: a.pass ? 'var(--lime)' : '#fef3c7',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+            {hasData ? (
+              [
+                { label: 'Full System Re-Scan', date: 'Oct 24, 2023 · Passed', score: '92/100', pass: true },
+                { label: 'Delta Check v2.3', date: 'Oct 12, 2023 · Warning', score: '74/100', pass: false },
+              ].map((a) => (
+                <div key={a.label} style={{
+                  display: 'flex', alignItems: 'center', gap: 14, padding: '13px 0', borderBottom: '1px solid var(--line)',
+                  transition: 'background 0.3s var(--ease-smooth)',
                 }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 16, color: a.pass ? 'var(--ink)' : '#b45309', fontVariationSettings: "'FILL' 1" }}>
-                    {a.pass ? 'check_circle' : 'search'}
-                  </span>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 12, flexShrink: 0,
+                    background: a.pass ? 'var(--lime)' : '#fef3c7',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16, color: a.pass ? 'var(--ink)' : '#b45309', fontVariationSettings: "'FILL' 1" }}>
+                      {a.pass ? 'check_circle' : 'search'}
+                    </span>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{a.label}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>{a.date}</div>
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink)', flexShrink: 0 }}>{a.score}</div>
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{a.label}</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>{a.date}</div>
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink)', flexShrink: 0 }}>{a.score}</div>
+              ))
+            ) : (
+              <div style={{ padding: '24px 0', textAlign: 'center' }}>
+                <div style={{ fontSize: 13, color: 'var(--muted)' }}>No previous audits found.</div>
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -163,16 +201,30 @@ export default function DashboardPage() {
           {/* Key Bias Drivers */}
           <div className="editorial-card animate-card-enter delay-300" style={{ padding: 22 }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)', marginBottom: 16 }}>Key Bias Drivers</div>
-            {[
-              { label: 'University Ranking', pct: '42%' },
-              { label: 'Postal Code', pct: '28%' },
-              { label: 'Gap in Employment', pct: '15%' },
-            ].map((d) => (
-              <div key={d.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
-                <span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{d.label}</span>
-                <span style={{ fontSize: 13, fontWeight: 800, color: '#d7442f' }}>{d.pct}</span>
+            {hasData ? (
+              loadingDrivers ? (
+                [1, 2, 3].map(i => (
+                  <div key={i} style={{ marginBottom: 12 }}>
+                    <div className="skeleton" style={{ height: 30, width: '100%', borderRadius: 8 }} />
+                  </div>
+                ))
+              ) : drivers.length > 0 ? (
+                drivers.map((d) => (
+                  <div key={d.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
+                    <span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{d.label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: '#d7442f' }}>{d.pct}</span>
+                  </div>
+                ))
+              ) : (
+                <div style={{ padding: '20px 0', textAlign: 'center' }}>
+                  <div style={{ fontSize: 13, color: 'var(--muted)' }}>No drivers identified yet.</div>
+                </div>
+              )
+            ) : (
+              <div style={{ padding: '20px 0', textAlign: 'center' }}>
+                <div style={{ fontSize: 13, color: 'var(--muted)' }}>Run an analysis to identify bias drivers.</div>
               </div>
-            ))}
+            )}
           </div>
 
           {/* Recommended Mitigation — dark olive card */}

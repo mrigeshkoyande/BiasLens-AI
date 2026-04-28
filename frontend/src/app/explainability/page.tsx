@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePipeline } from '@/lib/pipeline';
-import { explainBias, ApiError, ApiExplanationResponse } from '@/lib/api';
+import { explainBias, getSampleScrutiny, ApiError, ApiExplanationResponse, ApiSampleScrutinyResponse } from '@/lib/api';
 
 function Sk({ style }: { style?: React.CSSProperties }) {
   return <div className="skeleton" style={{ borderRadius:8, ...style }} />;
@@ -12,7 +12,9 @@ export default function ExplainabilityPage() {
   const router = useRouter();
   const { analysisId } = usePipeline();
   const [data, setData] = useState<ApiExplanationResponse | null>(null);
+  const [sample, setSample] = useState<ApiSampleScrutinyResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingSample, setLoadingSample] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -22,6 +24,14 @@ export default function ExplainabilityPage() {
       .then(res => { setData(res); setLoading(false); })
       .catch(err => { setError(err instanceof ApiError ? err.detail : 'Failed to load.'); setLoading(false); });
   }, [analysisId, data, loading]);
+
+  useEffect(() => {
+    if (!analysisId || sample || loadingSample) return;
+    setLoadingSample(true);
+    getSampleScrutiny(analysisId)
+      .then(res => { setSample(res); setLoadingSample(false); })
+      .catch(() => setLoadingSample(false));
+  }, [analysisId, sample, loadingSample]);
 
   if (!analysisId) {
     return (
@@ -136,31 +146,45 @@ export default function ExplainabilityPage() {
 
           {/* Sample Analysis card */}
           <div className="editorial-card animate-card-enter delay-200" style={{ padding:22 }}>
-            <div style={{ fontSize:14, fontWeight:800, color:'var(--muted)', marginBottom:4 }}>Sample Analysis #829</div>
+            <div style={{ fontSize:14, fontWeight:800, color:'var(--muted)', marginBottom:4 }}>Individual Scrutiny</div>
             <div style={{ fontSize:12, color:'var(--muted)', lineHeight:1.5, marginBottom:18 }}>
-              Detailed view of a single instance where the model predicted &lsquo;High Risk&rsquo;.
+              Real-time deconstruction of a single model decision from your dataset.
             </div>
 
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 16px', background:'var(--surface-2)', borderRadius:12, marginBottom:16 }}>
-              <span style={{ fontSize:12, fontWeight:700, color:'var(--muted)', letterSpacing:'0.06em' }}>DECISION SCORE</span>
-              <span style={{ fontSize:22, fontWeight:900, color:'var(--ink)' }}>0.89</span>
-            </div>
-            <div style={{ height:6, background:'var(--surface-3)', borderRadius:999, overflow:'hidden', marginBottom:18 }}>
-              <div style={{ height:'100%', width:'89%', background:'var(--lime)', borderRadius:999 }} />
-            </div>
-
-            {[
-              { label:'Debt-to-Income', sub:'Strong negative correlation (−0.12)', icon:'trending_down' },
-              { label:'Employment History', sub:'Positive influence (+0.08)', icon:'trending_up' },
-            ].map(item=>(
-              <div key={item.label} style={{ display:'flex', gap:10, marginBottom:12, alignItems:'flex-start' }}>
-                <span className="material-symbols-outlined" style={{ fontSize:16, color:'var(--lime)', marginTop:2, fontVariationSettings:"'FILL' 1" }}>{item.icon}</span>
-                <div>
-                  <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)' }}>{item.label}</div>
-                  <div style={{ fontSize:11, color:'var(--muted)' }}>{item.sub}</div>
+            {loadingSample ? (
+               <div style={{ marginBottom:20 }}>
+                 <Sk style={{ height:50, width:'100%', marginBottom:12 }} />
+                 <Sk style={{ height:100, width:'100%' }} />
+               </div>
+            ) : sample ? (
+              <>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 16px', background:'var(--surface-2)', borderRadius:12, marginBottom:16 }}>
+                  <span style={{ fontSize:12, fontWeight:700, color:'var(--muted)', letterSpacing:'0.06em' }}>DECISION SCORE</span>
+                  <span style={{ fontSize:22, fontWeight:900, color:'var(--ink)' }}>{sample.decision_score.toFixed(2)}</span>
                 </div>
-              </div>
-            ))}
+                <div style={{ height:6, background:'var(--surface-3)', borderRadius:999, overflow:'hidden', marginBottom:18 }}>
+                  <div style={{ height:'100%', width:`${sample.decision_score * 100}%`, background:'var(--lime)', borderRadius:999 }} />
+                </div>
+
+                {sample.top_contributors.map(item=>(
+                  <div key={item.feature} style={{ display:'flex', gap:10, marginBottom:12, alignItems:'flex-start' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize:16, color: item.influence === 'positive' ? 'var(--olive)' : '#b0b880', marginTop:2, fontVariationSettings:"'FILL' 1" }}>
+                      {item.influence === 'positive' ? 'trending_up' : 'trending_down'}
+                    </span>
+                    <div>
+                      <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)' }}>{item.feature}</div>
+                      <div style={{ fontSize:11, color:'var(--muted)' }}>Value: {item.value} ({item.impact > 0 ? '+' : ''}{item.impact.toFixed(3)})</div>
+                    </div>
+                  </div>
+                ))}
+                
+                <div style={{ marginTop:14, padding:'10px 14px', borderRadius:12, background:'var(--surface-3)', border:'1px solid var(--line)', fontSize:11, fontWeight:700, color:'var(--ink-soft)' }}>
+                  REC: {sample.recommendation.toUpperCase()}
+                </div>
+              </>
+            ) : (
+              <p style={{ fontSize:12, color:'var(--muted)' }}>Load analysis to view sample.</p>
+            )}
           </div>
 
           {/* Neural Mapping visual */}
@@ -206,11 +230,28 @@ export default function ExplainabilityPage() {
           </div>
         </div>
         <div style={{ display:'flex', gap:12 }}>
-          {['share','print'].map(ic=>(
-            <button key={ic} style={{ width:40, height:40, borderRadius:12, border:'1px solid var(--line)', background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
-              <span className="material-symbols-outlined" style={{ fontSize:18, color:'var(--muted)' }}>{ic}</span>
-            </button>
-          ))}
+          <button 
+            onClick={() => {
+              if (navigator.share) {
+                navigator.share({
+                  title: 'BiasLens AI - Explainability Hub',
+                  url: window.location.href,
+                }).catch(() => {});
+              } else {
+                navigator.clipboard.writeText(window.location.href);
+                alert('Link copied to clipboard!');
+              }
+            }}
+            style={{ width:40, height:40, borderRadius:12, border:'1px solid var(--line)', background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize:18, color:'var(--muted)' }}>share</span>
+          </button>
+          <button 
+            onClick={() => window.print()}
+            style={{ width:40, height:40, borderRadius:12, border:'1px solid var(--line)', background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize:18, color:'var(--muted)' }}>print</span>
+          </button>
         </div>
       </div>
     </div>

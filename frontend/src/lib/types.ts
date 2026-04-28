@@ -6,7 +6,8 @@ export interface FairnessMetrics {
   disparateImpact: number;
   averageOdds: number;
   fairnessScore: number;
-  riskLevel: RiskLevel;
+  riskScore: number;
+  riskLevel: 'Low' | 'Medium' | 'High';
 }
 
 export interface GroupMetric {
@@ -42,6 +43,7 @@ export interface SimulationResult {
     percentage: number;
   }[];
   costOfBias: number;
+  plainLanguageImpact: string;
 }
 
 export interface FixStrategy {

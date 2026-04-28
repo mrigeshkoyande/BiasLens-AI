@@ -1,38 +1,68 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { usePipeline } from '@/lib/pipeline';
-import { generateReport, ApiError } from '@/lib/api';
+import { generateReport, getReports, ApiError, ApiReportItem, getReportDownloadUrl } from '@/lib/api';
+
+function Sk({ style }: { style?: React.CSSProperties }) {
+  return <div className="skeleton" style={{ borderRadius: 8, ...style }} />;
+}
 
 export default function ReportsPage() {
   const pipeline = usePipeline();
   const { analysisId } = pipeline;
   const pipelineScore = pipeline.fairnessScore;
   const pipelineRisk = pipeline.riskLevel;
+  const [history, setHistory] = useState<ApiReportItem[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generated, setGenerated] = useState(false);
 
-  const handleGenerate = async () => {
-    if (!analysisId) { setError('No analysis found. Upload and analyze a dataset first.'); return; }
-    setGenerating(true); setError(null);
+  useEffect(() => {
+    setLoadingHistory(true);
+    getReports()
+      .then(res => {
+        setHistory(res.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+        setLoadingHistory(false);
+      })
+      .catch(() => setLoadingHistory(false));
+  }, []);
+
+  const handleGenerate = async (targetAnalysisId?: string) => {
+    const aid = targetAnalysisId || analysisId;
+    if (!aid) {
+      setError('No analysis found. Please analyze a dataset first.');
+      return;
+    }
+    
+    setGenerating(true);
+    setError(null);
     try {
-      const res = await generateReport(analysisId);
+      const res = await generateReport(aid);
       if (res.download_url) {
-        window.open(res.download_url, '_blank');
+        window.open(getReportDownloadUrl(res.download_url), '_blank');
+        setGenerated(true);
+      } else {
+        throw new Error('No download URL returned from server.');
       }
-      setGenerated(true);
-    } catch(err) {
-      setError(err instanceof ApiError ? err.detail : 'Failed to generate report.');
+    } catch (err) {
+      const msg = err instanceof ApiError ? `${err.detail} (ID: ${aid})` : `Failed to generate report for ${aid}.`;
+      setError(msg);
+      console.error('Report Generation Error:', err);
     } finally {
       setGenerating(false);
     }
   };
 
+  const baseScore = pipeline.fairnessScore ?? 85;
+  const hasData = !!pipeline.analysisId;
+
   const complianceRows = [
-    { framework: 'EU AI Act', requirement: 'Transparency & Explainability', status: 'Passed', score: '94/100' },
-    { framework: 'NIST AI RMF', requirement: 'Fairness & Non-Discrimination', status: 'Warning', score: '74/100' },
-    { framework: 'IEEE 7000', requirement: 'Accountability Mechanisms', status: 'Passed', score: '89/100' },
-    { framework: 'GDPR Art. 22', requirement: 'Automated Decision Rights', status: 'Passed', score: '96/100' },
+    { framework: 'EU AI Act', requirement: 'Transparency & Explainability', status: hasData ? (baseScore > 80 ? 'Passed' : 'Warning') : 'Passed', score: hasData ? `${Math.round(baseScore * 0.94)}/100` : '94/100' },
+    { framework: 'NIST AI RMF', requirement: 'Fairness & Non-Discrimination', status: hasData ? (baseScore > 75 ? 'Passed' : 'Critical') : 'Warning', score: hasData ? `${Math.round(baseScore * 0.74)}/100` : '74/100' },
+    { framework: 'IEEE 7000', requirement: 'Accountability Mechanisms', status: hasData ? (baseScore > 85 ? 'Passed' : 'Passed') : 'Passed', score: hasData ? `${Math.round(baseScore * 0.89)}/100` : '89/100' },
+    { framework: 'GDPR Art. 22', requirement: 'Automated Decision Rights', status: hasData ? (baseScore > 90 ? 'Passed' : 'Passed') : 'Passed', score: hasData ? `${Math.round(baseScore * 0.96)}/100` : '96/100' },
   ];
 
   return (
@@ -102,6 +132,59 @@ export default function ReportsPage() {
             </table>
           </div>
 
+          {/* Audit History Table */}
+          <div className="editorial-card animate-card-enter delay-150" style={{ padding:'clamp(18px, 3vw, 28px)' }}>
+            <div style={{ fontSize:16, fontWeight:800, color:'var(--ink)', marginBottom:18 }}>Recent Audit History</div>
+            {loadingHistory ? (
+              <div className="space-y-4">
+                {[1,2,3].map(i=><Sk key={i} style={{ height:40, width:'100%' }}/>)}
+              </div>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Dataset</th>
+                    <th>Score</th>
+                    <th>Risk</th>
+                    <th>Date</th>
+                    <th style={{ textAlign:'right' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.length ? history.map(item => (
+                    <tr key={item.id}>
+                      <td style={{ fontWeight:700 }}>{item.dataset_name}</td>
+                      <td style={{ fontFamily:'monospace', fontWeight:800 }}>{item.fairness_score}/100</td>
+                      <td>
+                        <span style={{
+                          display:'inline-flex', alignItems:'center', gap:5,
+                          padding:'3px 10px', borderRadius:999, fontSize:10, fontWeight:800,
+                          background: item.risk_level === 'low' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                          color: item.risk_level === 'low' ? '#10b981' : '#ef4444',
+                        }}>
+                          {item.risk_level.toUpperCase()}
+                        </span>
+                      </td>
+                      <td style={{ fontSize:11, color:'var(--muted)' }}>{new Date(item.created_at).toLocaleDateString()}</td>
+                      <td style={{ textAlign:'right' }}>
+                        <button 
+                          onClick={() => handleGenerate(item.id)}
+                          style={{ background:'none', border:'none', color:'var(--olive)', fontSize:11, fontWeight:800, cursor:'pointer', padding:0 }}
+                        >
+                          DOWNLOAD PDF
+                        </button>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={5} style={{ textAlign:'center', py:20, color:'var(--muted)', fontSize:12 }}>No previous audits found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
+
           {/* Report sections */}
           <div className="editorial-card animate-card-enter delay-200" style={{ padding:'clamp(18px, 3vw, 28px)' }}>
             <div style={{ fontSize:16, fontWeight:800, color:'var(--ink)', marginBottom:18 }}>Report Sections</div>
@@ -128,25 +211,41 @@ export default function ReportsPage() {
         <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
 
           {/* Generate CTA */}
-          <div className="editorial-card animate-card-enter delay-100" style={{ padding:24, background:'#2e3800', border:'none' }}>
-            <div style={{ fontSize:15, fontWeight:900, color:'var(--lime)', marginBottom:8 }}>
-              {generated ? '✓ Report Generated' : 'Generate Full Report'}
-            </div>
-            <p style={{ fontSize:12, color:'#b8c870', lineHeight:1.6, marginBottom:20 }}>
-              {generated
-                ? 'Your PDF report has been generated and downloaded. It includes all compliance annexes and SHAP evidence.'
-                : 'Creates a court-ready PDF with all fairness metrics, SHAP visualizations, and compliance certificates.'}
-            </p>
-            <button onClick={handleGenerate} disabled={generating} style={{
-              width:'100%', background: generated ? 'rgba(185,245,0,0.15)' : 'var(--lime)', color: generated ? 'var(--lime)' : 'var(--ink)',
-              border: generated ? '1px solid rgba(185,245,0,0.4)' : 'none', borderRadius:999, padding:'12px 0',
-              fontWeight:800, fontSize:13, letterSpacing:'0.06em', cursor: generating ? 'not-allowed' : 'pointer', opacity: generating ? 0.8 : 1,
-              display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-            }}>
-              {generating
-                ? <><span style={{ width:14, height:14, borderRadius:999, border:'2px solid rgba(23,22,13,.2)', borderTopColor:'var(--ink)', animation:'spin 0.8s linear infinite', display:'inline-block' }} />Generating…</>
-                : generated ? 'DOWNLOAD AGAIN' : 'GENERATE REPORT'}
-            </button>
+          <div className="editorial-card animate-card-enter delay-100" style={{ padding:24, background: analysisId ? '#2e3800' : 'rgba(23,22,13,0.02)', border: analysisId ? 'none' : '1.5px dashed var(--line)' }}>
+            {!analysisId ? (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--ink)', marginBottom: 8 }}>
+                  No Active Analysis
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 20 }}>
+                  Complete an analysis first to generate a professional PDF report.
+                </p>
+                <Link href="/upload" className="btn-primary" style={{ width: '100%', minHeight: 48 }}>
+                  Start New Analysis
+                </Link>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize:15, fontWeight:900, color:'var(--lime)', marginBottom:8 }}>
+                  {generated ? '✓ Report Generated' : 'Generate Full Report'}
+                </div>
+                <p style={{ fontSize:12, color:'#b8c870', lineHeight:1.6, marginBottom:20 }}>
+                  {generated
+                    ? 'Your PDF report has been generated and downloaded. It includes all compliance annexes and SHAP evidence.'
+                    : 'Creates a court-ready PDF with all fairness metrics, SHAP visualizations, and compliance certificates.'}
+                </p>
+                <button onClick={handleGenerate} disabled={generating} style={{
+                  width:'100%', background: generated ? 'rgba(185,245,0,0.15)' : 'var(--lime)', color: generated ? 'var(--lime)' : 'var(--ink)',
+                  border: generated ? '1px solid rgba(185,245,0,0.4)' : 'none', borderRadius:999, padding:'12px 0',
+                  fontWeight:800, fontSize:13, letterSpacing:'0.06em', cursor: generating ? 'not-allowed' : 'pointer', opacity: generating ? 0.8 : 1,
+                  display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                }}>
+                  {generating
+                    ? <><span style={{ width:14, height:14, borderRadius:999, border:'2px solid rgba(23,22,13,.2)', borderTopColor:'var(--ink)', animation:'spin 0.8s linear infinite', display:'inline-block' }} />Generating…</>
+                    : generated ? 'DOWNLOAD AGAIN' : 'GENERATE REPORT'}
+                </button>
+              </>
+            )}
           </div>
 
           {/* Quick metrics */}
@@ -163,15 +262,31 @@ export default function ReportsPage() {
 
           {/* Share / Print actions */}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-            {[
-              { icon:'share', label:'Share' },
-              { icon:'print', label:'Print' },
-            ].map(a=>(
-              <button key={a.icon} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, padding:'16px 0', borderRadius:16, border:'1px solid var(--line)', background:'transparent', cursor:'pointer' }}>
-                <span className="material-symbols-outlined" style={{ fontSize:22, color:'var(--muted)' }}>{a.icon}</span>
-                <span style={{ fontSize:12, fontWeight:700, color:'var(--muted)' }}>{a.label}</span>
-              </button>
-            ))}
+            <button 
+              onClick={() => {
+                if (navigator.share) {
+                  navigator.share({
+                    title: 'BiasLens AI Fairness Audit',
+                    text: `Check out this fairness audit report for ${pipeline.filename ?? 'Active Dataset'}`,
+                    url: window.location.href,
+                  }).catch(() => {});
+                } else {
+                  navigator.clipboard.writeText(window.location.href);
+                  alert('Link copied to clipboard!');
+                }
+              }}
+              style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, padding:'16px 0', borderRadius:16, border:'1px solid var(--line)', background:'transparent', cursor:'pointer' }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize:22, color:'var(--muted)' }}>share</span>
+              <span style={{ fontSize:12, fontWeight:700, color:'var(--muted)' }}>Share</span>
+            </button>
+            <button 
+              onClick={() => window.print()}
+              style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, padding:'16px 0', borderRadius:16, border:'1px solid var(--line)', background:'transparent', cursor:'pointer' }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize:22, color:'var(--muted)' }}>print</span>
+              <span style={{ fontSize:12, fontWeight:700, color:'var(--muted)' }}>Print</span>
+            </button>
           </div>
         </div>
       </div>

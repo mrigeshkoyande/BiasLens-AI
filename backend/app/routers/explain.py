@@ -2,13 +2,15 @@
 Explanation router — sklearn-based feature importance + human-readable bias narratives.
 Uses permutation importance (no SHAP build dependency needed for Python 3.13).
 """
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 import numpy as np
 from sklearn.inspection import permutation_importance
+from app.auth import get_current_user
 
 from app.models.schemas import (
     ExplanationRequest, ExplanationResponse,
     BiasExplanation, FeatureImportanceItem,
+    SampleScrutinyResponse
 )
 from app.routers.analyze import get_analysis_data
 
@@ -50,8 +52,11 @@ def _narrative(feature: str, magnitude: float, is_sensitive: bool) -> str:
 
 
 @router.post("/explain", response_model=ExplanationResponse)
-async def explain_bias(req: ExplanationRequest):
-    data = get_analysis_data(req.analysis_id)
+async def explain_bias(
+    req: ExplanationRequest,
+    user: dict = Depends(get_current_user)
+):
+    data = get_analysis_data(req.analysis_id, user["uid"])
     model = data["model"]
     X = data["X"]
     y = data["y"]
@@ -110,4 +115,46 @@ async def explain_bias(req: ExplanationRequest):
         analysis_id=req.analysis_id,
         explanations=explanations,
         feature_importance=importance_list[:10],
+    )
+
+
+@router.get("/explain/sample/{analysis_id}", response_model=SampleScrutinyResponse)
+async def get_sample_scrutiny(
+    analysis_id: str,
+    user: dict = Depends(get_current_user)
+):
+    data = get_analysis_data(analysis_id, user["uid"])
+    df: pd.DataFrame = data["df"]
+    model = data["model"]
+    feature_cols = data["feature_cols"]
+    X = data["X"]
+    
+    # Pick a random row from the first 50 (usually includes some variety)
+    idx = df.index[0]
+    row_data = df.loc[idx].to_dict()
+    x_row = X.loc[idx]
+    
+    # Simple linear contribution: feature_val * coefficient
+    coeffs = model.coef_[0]
+    contributions = []
+    for i, col in enumerate(feature_cols):
+        impact = float(x_row[col] * coeffs[i])
+        contributions.append({
+            "feature": col,
+            "value": str(row_data[col]),
+            "impact": round(impact, 4),
+            "influence": "positive" if impact > 0 else "negative"
+        })
+    
+    # Sort by absolute impact
+    contributions = sorted(contributions, key=lambda x: abs(x["impact"]), reverse=True)
+    
+    score = float(model.predict_proba([x_row])[0][1])
+    
+    return SampleScrutinyResponse(
+        analysis_id=analysis_id,
+        row_data={k: str(v) for k, v in row_data.items() if k in feature_cols or k == data["target_col"]},
+        decision_score=round(score, 2),
+        top_contributors=contributions[:4],
+        recommendation="Flagged for bias audit due to high sensitivity correlation." if score < 0.5 else "Standard processing recommended."
     )

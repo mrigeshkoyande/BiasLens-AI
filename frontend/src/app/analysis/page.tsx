@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePipeline } from '@/lib/pipeline';
-import { analyzeDataset, getAnalysis, ApiError, ApiAnalysisResponse, ApiFairnessMetrics } from '@/lib/api';
+import { analyzeDataset, getAnalysis, generateInsights, ApiError, ApiAnalysisResponse, ApiFairnessMetrics, InsightObservation } from '@/lib/api';
 
 function Sk({ style }: { style?: React.CSSProperties }) {
   return <div className="skeleton" style={{ borderRadius: 8, ...style }} />;
@@ -13,7 +13,10 @@ export default function AnalysisPage() {
   const pipeline = usePipeline();
   const { analysisId, datasetId, targetColumn, sensitiveColumns } = pipeline;
   const [data, setData] = useState<ApiAnalysisResponse | null>(null);
+  const [insights, setInsights] = useState<InsightObservation[]>([]);
+  const [executiveSummary, setExecutiveSummary] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingInsights, setLoadingInsights] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasFetched = useRef(false);
 
@@ -26,8 +29,14 @@ export default function AnalysisPage() {
       setLoading(true);
       getAnalysis(analysisId)
         .then(res => {
-          // getAnalysis returns { analysis_id, metrics } — wrap into ApiAnalysisResponse shape
-          setData({ analysis_id: res.analysis_id, dataset_id: datasetId ?? '', metrics: res.metrics, model_accuracy: 0 });
+          setData({ 
+            analysis_id: res.analysis_id, 
+            dataset_id: datasetId ?? '', 
+            metrics: res.metrics, 
+            model_accuracy: 0,
+            risk_score: res.metrics.risk_score,
+            risk_level: res.metrics.risk_level
+          } as ApiAnalysisResponse);
           setLoading(false);
         })
         .catch(err => { setError(err instanceof ApiError ? err.detail : 'Failed to load analysis.'); setLoading(false); });
@@ -41,12 +50,27 @@ export default function AnalysisPage() {
       analyzeDataset({ dataset_id: datasetId, target_column: targetColumn, sensitive_columns: sensitiveColumns, positive_label: 1 })
         .then(res => {
           setData(res);
-          pipeline.setAnalysisResult(res.analysis_id, res.metrics.fairness_score, res.metrics.risk_level);
+          pipeline.setAnalysisResult(res.analysis_id, res.metrics.fairness_score, res.risk_score, res.risk_level);
           setLoading(false);
         })
         .catch(err => { setError(err instanceof ApiError ? err.detail : 'Failed.'); setLoading(false); });
     }
   }, [analysisId, datasetId, targetColumn, sensitiveColumns, loading, pipeline]);
+
+  useEffect(() => {
+    if (analysisId && !insights.length && !loadingInsights) {
+      setLoadingInsights(true);
+      generateInsights(analysisId)
+        .then(res => {
+          setInsights(res.observations);
+          setExecutiveSummary(res.executive_summary);
+          setLoadingInsights(false);
+        })
+        .catch(() => {
+          setLoadingInsights(false);
+        });
+    }
+  }, [analysisId, insights.length, loadingInsights]);
 
   if (!analysisId && !loading) {
     return (
@@ -95,14 +119,27 @@ export default function AnalysisPage() {
       {/* 3 metric pills */}
       <div className="animate-card-enter delay-100" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:16, marginBottom:36 }}>
         {[
-          { label:'BIAS SCORE', value:loading ? null : `${(100-score).toFixed(1)}%`, sub:'Moderate skew detected in gender-based approvals.' },
-          { label:'SAMPLE SIZE', value:loading ? null : pipeline.rowCount ? `${(pipeline.rowCount/1000000).toFixed(1)}M` : '1.2M', sub:'Synthetic and historical live production data.' },
+          { 
+            label:'FAIRNESS RISK', 
+            value:loading ? null : (data?.risk_score ?? 0), 
+            sub: loading ? '' : `Current status: ${data?.risk_level ?? 'Low'} Risk`,
+            isRisk: true 
+          },
+          { label:'SAMPLE SIZE', value:loading ? null : pipeline.rowCount ? `${(pipeline.rowCount/1000).toFixed(1)}K` : '1.2K', sub:'Records processed in this audit run.' },
           { label:'FAIRNESS METRIC', value:loading ? null : metrics?.disparate_impact?.toFixed(2) ?? '0.86', sub:'Disparate Impact ratio within monitoring threshold.' },
         ].map(m => (
-          <div key={m.label} className="soft-panel" style={{ padding:'20px 22px' }}>
+          <div key={m.label} className="soft-panel" style={{ padding:'20px 22px', border: m.isRisk && !loading ? `1px solid ${ (data?.risk_level === 'High' ? '#ef4444' : data?.risk_level === 'Medium' ? '#f59e0b' : 'var(--line)') }` : undefined }}>
             <div className="section-kicker" style={{ fontSize:10, marginBottom:8 }}>{m.label}</div>
             {loading ? <Sk style={{ height:36, width:96, marginBottom:8 }} /> : (
-              <div style={{ fontSize:32, fontWeight:900, color:'var(--ink)', letterSpacing:'-0.02em', marginBottom:6 }}>{m.value}</div>
+              <div style={{ 
+                fontSize:32, 
+                fontWeight:900, 
+                color: m.isRisk ? (data?.risk_level === 'High' ? '#ef4444' : data?.risk_level === 'Medium' ? '#f59e0b' : 'var(--ink)') : 'var(--ink)', 
+                letterSpacing:'-0.02em', 
+                marginBottom:6 
+              }}>
+                {m.value}{m.isRisk ? '/100' : ''}
+              </div>
             )}
             <div style={{ fontSize:12, color:'var(--muted)', lineHeight:1.5 }}>{m.sub}</div>
           </div>
@@ -173,22 +210,24 @@ export default function AnalysisPage() {
           {/* Executive summary */}
           <div className="soft-panel" style={{ padding:24 }}>
             <div style={{ fontSize:15, fontWeight:800, color:'var(--ink)', marginBottom:12 }}>Executive Summary</div>
-            <p style={{ fontSize:13, color:'var(--ink-soft)', lineHeight:1.65 }}>
-              The model displays a &ldquo;Confirmation Loop&rdquo; regarding credit history length, disproportionately penalizing younger applicants even when income levels are high. Recommended adjustment: Variable Weight Normalization.
-            </p>
+            {loadingInsights ? <Sk style={{ height:40, width:'100%' }} /> : (
+              <p style={{ fontSize:13, color:'var(--ink-soft)', lineHeight:1.65 }}>
+                {executiveSummary ?? 'The fairness audit is in progress. Initial metrics indicate demographic variance across protected groups.'}
+              </p>
+            )}
           </div>
         </div>
 
         {/* Key Observations */}
         <div className="editorial-card animate-card-enter delay-400" style={{ padding:'clamp(18px, 3vw, 28px)' }}>
           <div className="section-kicker" style={{ marginBottom:20 }}>KEY OBSERVATIONS</div>
-          {loading ? [1,2,3].map(i=><Sk key={i} style={{ height:64, marginBottom:16 }}/>):(
+          {loadingInsights ? [1,2,3].map(i=><Sk key={i} style={{ height:64, marginBottom:16 }}/>):(
             <div style={{ display:'flex', flexDirection:'column', gap:24 }}>
-              {[
-                { num:'01', title:'Implicit Bias in Job Titles', desc:'"Gig economy" keywords trigger a 15% lower approval score despite identical net earnings compared to salaried counterparts. This suggests a legacy stability heuristic.' },
-                { num:'02', title:'Gender Disparity in Limit Caps', desc:'Average credit limits for female applicants are consistently 4.2% lower in the 800+ credit score bracket, pointing to a potential interaction bias between gender and industry sector.' },
-                { num:'03', title:'Mitigation Strategy: Ready', desc:'Auto-reweighting of non-essential demographic proxies is recommended for the next deployment cycle to ensure Equal Opportunity compliance.' },
-              ].map(obs=>(
+              {(insights.length ? insights : [
+                { num:'01', title:'Implicit Bias in Job Titles', desc:'"Gig economy" keywords trigger a 15% lower approval score despite net earnings.' },
+                { num:'02', title:'Gender Disparity', desc:'Average credit limits for female applicants are consistently 4.2% lower in high score brackets.' },
+                { num:'03', title:'Mitigation Strategy: Ready', desc:'Auto-reweighting of non-essential demographic proxies is recommended.' },
+              ]).map(obs=>(
                 <div key={obs.num} style={{ display:'flex', gap:16, alignItems:'flex-start' }}>
                   <div style={{ fontSize:28, fontWeight:900, color:'var(--lime)', lineHeight:1, flexShrink:0, minWidth:32 }}>{obs.num}</div>
                   <div>
@@ -203,9 +242,37 @@ export default function AnalysisPage() {
       </div>
 
       {/* Actions */}
-      <div style={{ display:'flex', gap:16, marginTop:32, paddingTop:24, borderTop:'1px solid var(--line)' }}>
+      <div style={{ display:'flex', gap:16, marginTop:32, paddingTop:24, borderTop:'1px solid var(--line)', alignItems:'center', flexWrap:'wrap' }}>
         <button onClick={()=>router.push('/mitigation')} className="btn-primary">APPLY MITIGATIONS</button>
         <button onClick={()=>router.push('/reports')} className="btn-secondary">DOWNLOAD FULL REPORT</button>
+        
+        <div style={{ display:'flex', gap:10, marginLeft:'auto' }}>
+          <button 
+            onClick={() => {
+              if (navigator.share) {
+                navigator.share({
+                  title: 'BiasLens AI - Analysis Report',
+                  text: `Fairness audit for ${pipeline.filename ?? 'Active Dataset'}`,
+                  url: window.location.href,
+                }).catch(() => {});
+              } else {
+                navigator.clipboard.writeText(window.location.href);
+                alert('Link copied to clipboard!');
+              }
+            }}
+            style={{ width:44, height:44, borderRadius:12, border:'1px solid var(--line)', background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', transition:'all 0.2s' }}
+            title="Share Analysis"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize:20, color:'var(--muted)' }}>share</span>
+          </button>
+          <button 
+            onClick={() => window.print()}
+            style={{ width:44, height:44, borderRadius:12, border:'1px solid var(--line)', background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', transition:'all 0.2s' }}
+            title="Print Analysis"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize:20, color:'var(--muted)' }}>print</span>
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -3,14 +3,19 @@ Upload router — handles CSV file upload, parsing, and column detection.
 """
 import uuid
 import io
-from fastapi import APIRouter, UploadFile, File, HTTPException
+import requests
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 import pandas as pd
+from sqlalchemy.orm import Session
 
-from app.models.schemas import DatasetUploadResponse, ColumnInfo
+from app.models.schemas import DatasetUploadResponse, ColumnInfo, UrlUploadRequest
+from app.auth import get_current_user
+from app.database import get_db
+from app.models.db_models import Dataset
 
 router = APIRouter()
 
-# In-memory dataset store (replace with Supabase Storage in production)
+# In-memory dataset cache for active session
 _datasets: dict = {}
 
 SENSITIVE_KEYWORDS = {"gender", "sex", "race", "ethnicity", "religion", "age",
@@ -27,7 +32,11 @@ def _detect_col_type(col: str) -> tuple[bool, bool]:
 
 
 @router.post("/upload", response_model=DatasetUploadResponse)
-async def upload_dataset(file: UploadFile = File(...)):
+async def upload_dataset(
+    file: UploadFile = File(...), 
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
+):
     if not file.filename or not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are accepted.")
 
@@ -41,7 +50,10 @@ async def upload_dataset(file: UploadFile = File(...)):
         raise HTTPException(status_code=422, detail="The uploaded CSV file is empty.")
 
     dataset_id = str(uuid.uuid4())
-    _datasets[dataset_id] = df
+    _datasets[dataset_id] = {
+        "df": df,
+        "user_id": user["uid"]
+    }
 
     columns = []
     for col in df.columns:
@@ -55,6 +67,17 @@ async def upload_dataset(file: UploadFile = File(...)):
             null_count=int(df[col].isna().sum()),
         ))
 
+    # Save to database
+    db_dataset = Dataset(
+        id=dataset_id,
+        user_id=user["uid"],
+        filename=file.filename,
+        row_count=len(df),
+        column_info=[c.dict() for c in columns]
+    )
+    db.add(db_dataset)
+    db.commit()
+
     preview = df.head(8).fillna("").to_dict(orient="records")
 
     return DatasetUploadResponse(
@@ -67,16 +90,87 @@ async def upload_dataset(file: UploadFile = File(...)):
     )
 
 
+@router.post("/upload/url", response_model=DatasetUploadResponse)
+async def upload_dataset_from_url(
+    req: UrlUploadRequest, 
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
+):
+    try:
+        response = requests.get(req.url, timeout=10)
+        response.raise_for_status()
+        df = pd.read_csv(io.BytesIO(response.content))
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Failed to fetch or parse CSV from URL: {e}")
+
+    if df.empty:
+        raise HTTPException(status_code=422, detail="The remote CSV file is empty.")
+
+    dataset_id = str(uuid.uuid4())
+    _datasets[dataset_id] = {
+        "df": df,
+        "user_id": user["uid"]
+    }
+    filename = req.url.split("/")[-1] or "remote_dataset.csv"
+
+    columns = []
+    for col in df.columns:
+        is_sensitive, is_target = _detect_col_type(col)
+        columns.append(ColumnInfo(
+            name=col,
+            dtype=str(df[col].dtype),
+            is_sensitive=is_sensitive,
+            is_target=is_target,
+            unique_values=int(df[col].nunique()),
+            null_count=int(df[col].isna().sum()),
+        ))
+
+    # Save to database
+    db_dataset = Dataset(
+        id=dataset_id,
+        user_id=user["uid"],
+        filename=filename,
+        row_count=len(df),
+        column_info=[c.dict() for c in columns]
+    )
+    db.add(db_dataset)
+    db.commit()
+
+    preview = df.head(8).fillna("").to_dict(orient="records")
+
+    return DatasetUploadResponse(
+        dataset_id=dataset_id,
+        filename=filename,
+        row_count=len(df),
+        column_count=len(df.columns),
+        columns=columns,
+        preview=preview,
+    )
+
+
 @router.get("/datasets/{dataset_id}")
-async def get_dataset(dataset_id: str):
+async def get_dataset(
+    dataset_id: str,
+    user: dict = Depends(get_current_user)
+):
     if dataset_id not in _datasets:
         raise HTTPException(status_code=404, detail="Dataset not found.")
-    df = _datasets[dataset_id]
+    
+    data = _datasets[dataset_id]
+    if data["user_id"] != user["uid"]:
+        raise HTTPException(status_code=403, detail="Access denied.")
+        
+    df = data["df"]
     return {"dataset_id": dataset_id, "row_count": len(df), "columns": list(df.columns)}
 
 
-def get_dataset_df(dataset_id: str) -> pd.DataFrame:
-    """Shared utility — retrieve a stored DataFrame by ID."""
+def get_dataset_df(dataset_id: str, user_id: str) -> pd.DataFrame:
+    """Shared utility — retrieve a stored DataFrame by ID and verify ownership."""
     if dataset_id not in _datasets:
         raise HTTPException(status_code=404, detail=f"Dataset '{dataset_id}' not found.")
-    return _datasets[dataset_id]
+    
+    data = _datasets[dataset_id]
+    if data["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Access denied to this dataset.")
+        
+    return data["df"]

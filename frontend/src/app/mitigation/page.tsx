@@ -126,19 +126,19 @@ export default function MitigationPage() {
               <div style={{ fontSize:16, fontWeight:800, color:'var(--ink)', marginBottom:18 }}>Mitigation Results</div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
                 {[
-                  { label:'BEFORE', value: Math.round(result.before_score), bg:'var(--surface-2)' },
-                  { label:'AFTER',  value: Math.round(result.after_score),  bg:'var(--lime)' },
+                  { label:'RISK BEFORE', value: Math.round(result.before_risk_score), bg:'var(--surface-2)', color: '#ef4444' },
+                  { label:'RISK AFTER',  value: Math.round(result.after_risk_score),  bg:'var(--lime)', color: 'var(--olive)' },
                 ].map(p=>(
                   <div key={p.label} style={{ padding:24, borderRadius:20, background:p.bg, textAlign:'center' }}>
                     <div style={{ fontSize:11, fontWeight:700, color:'var(--muted)', letterSpacing:'0.1em', marginBottom:12 }}>{p.label}</div>
-                    <div style={{ fontSize:48, fontWeight:900, color:'var(--ink)', lineHeight:1 }}>{p.value}</div>
-                    <div style={{ fontSize:12, fontWeight:700, color:'var(--muted)', marginTop:4 }}>Fairness Score</div>
+                    <div style={{ fontSize:48, fontWeight:900, color: p.color, lineHeight:1 }}>{p.value}</div>
+                    <div style={{ fontSize:12, fontWeight:700, color:'var(--muted)', marginTop:4 }}>Fairness Risk</div>
                   </div>
                 ))}
               </div>
               <div style={{ marginTop:12, padding:'12px 16px', borderRadius:12, background:'rgba(185,245,0,0.1)', border:'1px solid rgba(185,245,0,0.3)' }}>
-                <div style={{ fontSize:12, color:'var(--olive)', fontWeight:700 }}>Improvement: +{result.improvement.toFixed(1)} points</div>
-                <div style={{ fontSize:11, color:'var(--muted)', marginTop:2 }}>{result.description}</div>
+                <div style={{ fontSize:14, color:'var(--olive)', fontWeight:800 }}>Risk Reduction: -{result.improvement.toFixed(1)}%</div>
+                <div style={{ fontSize:12, color:'var(--ink-soft)', marginTop:4 }}>{result.description}</div>
               </div>
               <div style={{ marginTop:18, display:'flex', gap:12 }}>
                 <button onClick={()=>router.push('/reports')} className="btn-primary" style={{ flex:1 }}>Generate Report</button>

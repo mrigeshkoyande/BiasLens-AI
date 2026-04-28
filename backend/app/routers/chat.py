@@ -1,7 +1,8 @@
 """
 AI Chat router — Gemini-powered fairness assistant with rule-based fallback.
 """
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from app.auth import get_current_user
 from app.models.schemas import ChatRequest, ChatResponse
 from app.config import GEMINI_API_KEY
 
@@ -12,7 +13,10 @@ Explain metrics clearly, suggest fixes, keep responses under 200 words."""
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest):
+async def chat(
+    req: ChatRequest,
+    user: dict = Depends(get_current_user)
+):
     if not GEMINI_API_KEY:
         return ChatResponse(response=_rule_based_response(req.message), model="rule-based-fallback")
     try:

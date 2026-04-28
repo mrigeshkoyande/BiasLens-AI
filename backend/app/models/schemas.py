@@ -4,9 +4,9 @@ from enum import Enum
 
 
 class RiskLevel(str, Enum):
-    low = "low"
-    medium = "medium"
-    high = "high"
+    low = "Low"
+    medium = "Medium"
+    high = "High"
 
 
 class FixStrategy(str, Enum):
@@ -25,6 +25,10 @@ class ColumnInfo(BaseModel):
     is_target: bool
     unique_values: int
     null_count: int
+
+
+class UrlUploadRequest(BaseModel):
+    url: str
 
 
 class DatasetUploadResponse(BaseModel):
@@ -57,6 +61,7 @@ class FairnessMetrics(BaseModel):
     disparate_impact: float
     average_odds: float
     fairness_score: float
+    risk_score: float
     risk_level: RiskLevel
     group_metrics: List[GroupMetric]
 
@@ -65,6 +70,8 @@ class AnalysisResponse(BaseModel):
     analysis_id: str
     dataset_id: str
     metrics: FairnessMetrics
+    risk_score: float
+    risk_level: RiskLevel
     model_accuracy: float
 
 
@@ -87,6 +94,14 @@ class FeatureImportanceItem(BaseModel):
     importance: float
     shap_value: float
     direction: str  # increases_bias | decreases_bias | neutral
+
+
+class SampleScrutinyResponse(BaseModel):
+    analysis_id: str
+    row_data: Dict[str, Any]
+    decision_score: float
+    top_contributors: List[Dict[str, Any]]
+    recommendation: str
 
 
 class ExplanationResponse(BaseModel):
@@ -113,6 +128,7 @@ class SimulationResponse(BaseModel):
     unfair_rejections: int
     cost_of_bias: float
     affected_groups: List[AffectedGroup]
+    plain_language_impact: str
 
 
 # ── Auto-Fix ──────────────────────────────────────────────────────────────────
@@ -126,7 +142,9 @@ class FixResponse(BaseModel):
     strategy: str
     before_score: float
     after_score: float
-    improvement: float
+    before_risk_score: float
+    after_risk_score: float
+    improvement: float  # Percentage
     before_metrics: Dict[str, float]
     after_metrics: Dict[str, float]
     description: str
@@ -151,7 +169,30 @@ class ReportRequest(BaseModel):
     title: Optional[str] = "Fairness Audit Report"
 
 
+class ReportItem(BaseModel):
+    id: str
+    dataset_name: str
+    fairness_score: float
+    risk_level: RiskLevel
+    created_at: str
+
+
 class ReportResponse(BaseModel):
     report_id: str
     title: str
     download_url: str
+
+class InsightObservation(BaseModel):
+    num: str
+    title: str
+    desc: str
+
+
+class InsightsRequest(BaseModel):
+    analysis_id: str
+
+
+class InsightsResponse(BaseModel):
+    analysis_id: str
+    observations: List[InsightObservation]
+    executive_summary: str

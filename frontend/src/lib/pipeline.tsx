@@ -21,7 +21,8 @@ interface PipelineState {
   targetColumn: string | null;
   sensitiveColumns: string[];
   fairnessScore: number | null;
-  riskLevel: 'low' | 'medium' | 'high' | null;
+  riskScore: number | null;
+  riskLevel: 'Low' | 'Medium' | 'High' | null;
 }
 
 interface PipelineContext extends PipelineState {
@@ -35,7 +36,8 @@ interface PipelineContext extends PipelineState {
   setAnalysisResult: (
     analysisId: string,
     fairnessScore: number,
-    riskLevel: 'low' | 'medium' | 'high'
+    riskScore: number,
+    riskLevel: 'Low' | 'Medium' | 'High'
   ) => void;
   clearPipeline: () => void;
   hasPipeline: boolean;
@@ -56,6 +58,7 @@ const DEFAULT_STATE: PipelineState = {
   targetColumn: null,
   sensitiveColumns: [],
   fairnessScore: null,
+  riskScore: null,
   riskLevel: null,
 };
 
@@ -109,6 +112,7 @@ export function PipelineProvider({ children }: { children: ReactNode }) {
         targetColumn: null,
         sensitiveColumns: [],
         fairnessScore: null,
+        riskScore: null,
         riskLevel: null,
       });
     },
@@ -123,8 +127,8 @@ export function PipelineProvider({ children }: { children: ReactNode }) {
   );
 
   const setAnalysisResult = useCallback(
-    (analysisId: string, fairnessScore: number, riskLevel: 'low' | 'medium' | 'high') => {
-      update({ analysisId, fairnessScore, riskLevel });
+    (analysisId: string, fairnessScore: number, riskScore: number, riskLevel: 'Low' | 'Medium' | 'High') => {
+      update({ analysisId, fairnessScore, riskScore, riskLevel });
     },
     [update]
   );

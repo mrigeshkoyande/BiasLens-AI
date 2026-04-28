@@ -173,6 +173,8 @@ export default function SettingsPage() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                   <input
+                    id={`threshold-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                    name={`threshold-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
                     type="number"
                     defaultValue={item.value}
                     step="0.01"
@@ -207,7 +209,6 @@ export default function SettingsPage() {
             <div style={{ paddingTop: 12 }}>
               {[
                 { label: 'Backend API URL', placeholder: 'http://localhost:8000/api', defaultValue: 'http://localhost:8000/api', type: 'text' as const },
-                { label: 'Gemini API Key', placeholder: 'AIza…', type: 'password' as const },
                 { label: 'Report Storage Path', placeholder: '/reports', defaultValue: '/reports', type: 'text' as const },
               ].map((k) => (
                 <div key={k.label} style={{ marginBottom: 18 }}>
@@ -215,6 +216,8 @@ export default function SettingsPage() {
                     {k.label}
                   </label>
                   <input
+                    id={`config-${k.label.toLowerCase().replace(/\s+/g, '-')}`}
+                    name={`config-${k.label.toLowerCase().replace(/\s+/g, '-')}`}
                     type={k.type}
                     placeholder={k.placeholder}
                     defaultValue={k.defaultValue}
@@ -235,6 +238,12 @@ export default function SettingsPage() {
                   />
                 </div>
               ))}
+              <div style={{ marginTop: 8, padding: '12px 16px', borderRadius: 12, background: 'rgba(185,245,0,0.08)', border: '1px solid var(--line)' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--olive)', marginBottom: 4 }}>Gemini AI Engine</div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>
+                  The Gemini API key is configured server-side for maximum security. Contact your administrator to update the backend environment variables.
+                </div>
+              </div>
             </div>
           </SettingSection>
 

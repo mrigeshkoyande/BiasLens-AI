@@ -2,7 +2,7 @@
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePipeline } from '@/lib/pipeline';
-import { uploadDataset, analyzeDataset, ApiError } from '@/lib/api';
+import { uploadDataset, uploadDatasetFromUrl, analyzeDataset, ApiError } from '@/lib/api';
 
 export default function UploadPage() {
   const router = useRouter();
@@ -10,10 +10,33 @@ export default function UploadPage() {
 
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [importUrl, setImportUrl] = useState('');
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+
+  const processResponse = useCallback(async (res: any, name: string) => {
+    setDatasetResult(res.dataset_id, name, res.row_count, res.columns);
+    const cols = res.columns;
+    const target = cols.find((c: any) => ['label', 'target', 'outcome', 'approved', 'hired'].includes(c.name.toLowerCase()))?.name ?? cols[cols.length - 1]?.name ?? '';
+    const sensitive = cols.filter((c: any) => ['gender', 'race', 'age', 'ethnicity', 'zip', 'zipcode', 'postal'].some(k => c.name.toLowerCase().includes(k))).map((c: any) => c.name);
+    setAnalysisConfig(target, sensitive);
+
+    setUploading(false);
+    setAnalyzing(true);
+    setProgress(60);
+
+    const analysisRes = await analyzeDataset({
+      dataset_id: res.dataset_id,
+      target_column: target,
+      sensitive_columns: sensitive.length ? sensitive : [cols[0]?.name ?? ''],
+      positive_label: 1,
+    });
+    setProgress(100);
+    setAnalysisResult(analysisRes.analysis_id, analysisRes.metrics.fairness_score, analysisRes.risk_score, analysisRes.risk_level);
+    setTimeout(() => router.push('/analysis'), 300);
+  }, [setDatasetResult, setAnalysisConfig, setAnalysisResult, router]);
 
   const handleFile = useCallback(async (f: File) => {
     if (!f.name.match(/\.(csv|json|jsonl|parquet)$/i)) {
@@ -24,38 +47,32 @@ export default function UploadPage() {
     setError(null);
     setUploading(true);
     setProgress(10);
-
     try {
       const uploadRes = await uploadDataset(f);
       setProgress(45);
-      setDatasetResult(uploadRes.dataset_id, f.name, uploadRes.row_count, uploadRes.columns);
-
-      // Auto-detect target + sensitive cols
-      const cols = uploadRes.columns;
-      const target = cols.find(c => ['label', 'target', 'outcome', 'approved', 'hired'].includes(c.name.toLowerCase()))?.name ?? cols[cols.length - 1]?.name ?? '';
-      const sensitive = cols.filter(c => ['gender', 'race', 'age', 'ethnicity', 'zip', 'zipcode', 'postal'].some(k => c.name.toLowerCase().includes(k))).map(c => c.name);
-      setAnalysisConfig(target, sensitive);
-
-      setUploading(false);
-      setAnalyzing(true);
-      setProgress(60);
-
-      const analysisRes = await analyzeDataset({
-        dataset_id: uploadRes.dataset_id,
-        target_column: target,
-        sensitive_columns: sensitive.length ? sensitive : [cols[0]?.name ?? ''],
-        positive_label: 1,
-      });
-      setProgress(100);
-      setAnalysisResult(analysisRes.analysis_id, analysisRes.metrics.fairness_score, analysisRes.metrics.risk_level);
-      setTimeout(() => router.push('/analysis'), 300);
+      await processResponse(uploadRes, f.name);
     } catch (err) {
-      setError(err instanceof ApiError ? err.detail : 'Upload or analysis failed. Is the backend running?');
+      setError(err instanceof ApiError ? err.detail : 'Upload failed.');
       setUploading(false);
       setAnalyzing(false);
-      setProgress(0);
     }
-  }, [setDatasetResult, setAnalysisConfig, setAnalysisResult, router]);
+  }, [processResponse]);
+
+  const handleUrlImport = async () => {
+    if (!importUrl) return;
+    setError(null);
+    setUploading(true);
+    setProgress(20);
+    try {
+      const uploadRes = await uploadDatasetFromUrl(importUrl);
+      setProgress(45);
+      await processResponse(uploadRes, importUrl.split('/').pop() || 'remote_data.csv');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.detail : 'URL import failed.');
+      setUploading(false);
+      setAnalyzing(false);
+    }
+  };
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -115,7 +132,7 @@ export default function UploadPage() {
             onDragLeave={() => setDragging(false)}
             onDrop={onDrop}
           >
-            <input type="file" accept=".csv,.json,.jsonl,.parquet" style={{ display: 'none' }} disabled={isLoading} onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+            <input id="file-upload" name="file-upload" type="file" accept=".csv,.json,.jsonl,.parquet" style={{ display: 'none' }} disabled={isLoading} onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
 
             {isLoading ? (
               <div>
@@ -158,9 +175,45 @@ export default function UploadPage() {
             <span className="material-symbols-outlined" style={{ fontSize: 18, color: 'var(--olive)' }}>info</span>
             <span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>
               Need a template?{' '}
-              <a href="#" style={{ color: 'var(--olive)', fontWeight: 700, textDecoration: 'underline' }}>Download the BiasLens Standard Format.</a>
+              <a href="/hr_dataset_sample.csv" download style={{ color: 'var(--olive)', fontWeight: 700, textDecoration: 'underline' }}>Download the BiasLens Standard Format.</a>
             </span>
           </div>
+          
+          <div style={{ marginTop: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Guided Demo Flow</div>
+              <span className="lime-pill" style={{ fontSize: 9, padding: '2px 8px' }}>PROCTOR MODE</span>
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {[
+                { name: 'Loan Approval Bias', file: 'loan_approval_bias.csv', icon: 'payments' },
+                { name: 'Housing Disparity', file: 'housing_bias_sample.csv', icon: 'home' },
+              ].map(s => (
+                <button
+                  key={s.name}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setImportUrl(`${window.location.origin}/${s.file}`);
+                    setTimeout(() => document.getElementById('import-btn')?.click(), 100);
+                  }}
+                  className="btn-secondary"
+                  style={{ 
+                    fontSize: 12, padding: '10px 16px', borderRadius: 14, 
+                    background: 'var(--surface-2)', display: 'flex', alignItems: 'center', 
+                    gap: 8, border: '1px solid var(--line)', cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--olive)' }}>{s.icon}</span>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontWeight: 800, color: 'var(--ink)' }}>{s.name}</div>
+                    <div style={{ fontSize: 10, color: 'var(--muted)' }}>Load & Analyze</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
         </div>
 
         {/* Right column */}
@@ -188,17 +241,42 @@ export default function UploadPage() {
 
           {/* Connect S3 — dark card */}
           <div className="editorial-card animate-card-enter delay-300" style={{ padding: 24, background: '#2e3800', border: 'none' }}>
-            <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--lime)', marginBottom: 10 }}>Connect S3</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--lime)', marginBottom: 10 }}>Cloud Import</div>
             <p style={{ fontSize: 13, color: '#b8c870', lineHeight: 1.6, marginBottom: 20 }}>
-              Stream directly from your enterprise data lake for real-time audits.
+              Audit datasets hosted on public URLs or enterprise data lakes.
             </p>
-            <button style={{
-              width: '100%', background: 'rgba(185,245,0,0.12)', border: '1px solid rgba(185,245,0,0.3)',
-              borderRadius: 999, padding: '11px 0', color: 'var(--lime)', fontWeight: 800, fontSize: 12,
-              letterSpacing: '0.08em', cursor: 'pointer',
-            }}>
-              SETUP INTEGRATION
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <input 
+                id="import-url"
+                name="import-url"
+                type="text" 
+                placeholder="https://example.com/data.csv"
+                value={importUrl}
+                onChange={(e) => setImportUrl(e.target.value)}
+                disabled={isLoading}
+                style={{
+                  width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(185,245,0,0.2)',
+                  borderRadius: 12, padding: '10px 14px', color: 'var(--lime)', fontSize: 13,
+                  outline: 'none', transition: 'border-color 0.2s'
+                }}
+              />
+              <button 
+                id="import-btn"
+                onClick={handleUrlImport}
+                disabled={isLoading || !importUrl}
+                style={{
+                  width: '100%', background: isLoading ? 'rgba(185,245,0,0.1)' : 'var(--lime)', 
+                  border: 'none', borderRadius: 999, padding: '11px 0', 
+                  color: isLoading ? 'var(--lime)' : 'var(--ink)', fontWeight: 800, fontSize: 12,
+                  letterSpacing: '0.08em', cursor: (isLoading || !importUrl) ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                }}
+              >
+                {isLoading ? (
+                   <><span style={{ width:12, height:12, borderRadius:999, border:'2px solid rgba(0,0,0,.1)', borderTopColor:'var(--ink)', animation:'spin 0.8s linear infinite', display:'inline-block' }} /> FETCHING...</>
+                ) : 'FETCH DATA'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

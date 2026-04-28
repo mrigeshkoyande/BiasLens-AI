@@ -5,19 +5,60 @@ import uuid
 import io
 import os
 from datetime import datetime
-from fastapi import APIRouter
+from typing import List
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
 from reportlab.lib.pagesizes import A4
+# ... rest of reportlab imports ...
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.lib import colors
 from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
                                  Table, TableStyle, HRFlowable)
-from app.models.schemas import ReportRequest, ReportResponse
+from app.models.schemas import ReportRequest, ReportResponse, ReportItem
+from app.auth import get_current_user
 from app.routers.analyze import get_analysis_data
+from app.database import get_db
+from app.models.db_models import Analysis, Dataset
+from app.config import GEMINI_API_KEY
 
 router = APIRouter()
 _reports: dict = {}
+
+REC_PROMPT = """You are BiasLens AI Policy Expert. 
+Based on these fairness metrics, generate 5 professional, actionable "Recommendations" for a compliance report.
+Metrics: {metrics_json}
+Format: A simple JSON array of 5 strings. No markdown, no numbering in strings."""
+
+
+def _get_dynamic_recommendations(metrics) -> list:
+    if not GEMINI_API_KEY:
+        return [
+            "Apply data reweighting to balance demographic group representation.",
+            "Remove or anonymize sensitive proxy attributes like ZIP code.",
+            "Apply equalized odds post-processing to balance true positive rates.",
+            "Conduct quarterly fairness audits for ongoing monitoring.",
+            "Document all mitigation steps for EU AI Act compliance."
+        ]
+    try:
+        import google.generativeai as genai
+        import json
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        m_data = {
+            "fairness_score": metrics.fairness_score,
+            "dp": metrics.demographic_parity,
+            "di": metrics.disparate_impact,
+            "risk": metrics.risk_level.value
+        }
+        res = model.generate_content(REC_PROMPT.format(metrics_json=json.dumps(m_data)))
+        text = res.text.strip()
+        if text.startswith("```json"): text = text[7:-3].strip()
+        elif text.startswith("```"): text = text[3:-3].strip()
+        return json.loads(text)
+    except:
+        return ["Monitor disparate impact closely.", "Balance dataset frequency.", "Audit for proxy bias.", "Apply reweighting.", "Log all model decisions."]
 
 BRAND_BLUE = colors.HexColor("#00d4ff")
 BRAND_PURPLE = colors.HexColor("#7c3aed")
@@ -28,11 +69,11 @@ RISK_AMBER = colors.HexColor("#f59e0b")
 
 
 def _risk_color(risk: str):
-    return {"high": RISK_RED, "medium": RISK_AMBER, "low": RISK_GREEN}.get(risk, RISK_AMBER)
+    return {"high": RISK_RED, "medium": RISK_AMBER, "low": RISK_GREEN}.get(risk.lower(), RISK_AMBER)
 
 
-def _build_pdf(analysis_id: str, title: str) -> bytes:
-    data = get_analysis_data(analysis_id)
+def _build_pdf(analysis_id: str, title: str, user_id: str, db: Session = None) -> bytes:
+    data = get_analysis_data(analysis_id, user_id, db)
     metrics = data["metrics"]
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4,
@@ -51,12 +92,25 @@ def _build_pdf(analysis_id: str, title: str) -> bytes:
 
     # Executive Summary
     story.append(Paragraph("Executive Summary", ParagraphStyle("h1", fontSize=14, fontName="Helvetica-Bold", spaceAfter=6)))
-    risk = metrics.risk_level.value
-    rc = _risk_color(risk)
-    summary_text = (f"The fairness audit yielded a score of <b>{metrics.fairness_score}/100</b> "
-                    f"with a risk level of <b>{risk.upper()} RISK</b>. "
-                    f"Immediate mitigation is {'recommended' if risk != 'low' else 'not required'}.")
+    risk_level = metrics.risk_level.value
+    risk_score = metrics.risk_score
+    rc = _risk_color(risk_level.lower())
+    
+    summary_text = (f"The fairness audit yielded a <b>Fairness Risk Score of {risk_score}/100</b> "
+                    f"with a <b>{risk_level.upper()} RISK</b> level. "
+                    f"This indicates that the model {'presents a significant risk of unfair bias' if risk_level != 'Low' else 'is within acceptable fairness thresholds'} "
+                    f"and {'requires immediate review and mitigation' if risk_level != 'Low' else 'should be monitored regularly'}.")
     story.append(Paragraph(summary_text, styles["Normal"]))
+    story.append(Spacer(1, 12))
+
+    # Impact Simulation
+    story.append(Paragraph("Bias Impact Simulation", ParagraphStyle("h1", fontSize=14, fontName="Helvetica-Bold", spaceAfter=6)))
+    pop_size = 100000
+    gap = metrics.demographic_parity
+    affected = int(pop_size * gap * 0.5)
+    impact_text = (f"In a simulated population of <b>{pop_size:,} applicants</b>, approximately <b>{affected:,} individuals</b> "
+                   f"from the disadvantaged group may be potentially disadvantaged by the observed disparity in selection rates.")
+    story.append(Paragraph(impact_text, styles["Normal"]))
     story.append(Spacer(1, 12))
 
     # Metrics Table
@@ -108,9 +162,16 @@ def _build_pdf(analysis_id: str, title: str) -> bytes:
 
 
 @router.post("/report/generate", response_model=ReportResponse)
-async def generate_report(req: ReportRequest):
+async def generate_report(
+    req: ReportRequest,
+    user: dict = Depends(get_current_user)
+):
     report_id = str(uuid.uuid4())
-    _reports[report_id] = {"analysis_id": req.analysis_id, "title": req.title}
+    _reports[report_id] = {
+        "analysis_id": req.analysis_id, 
+        "title": req.title,
+        "user_id": user["uid"]
+    }
     return ReportResponse(
         report_id=report_id,
         title=req.title or "Fairness Audit Report",
@@ -119,14 +180,42 @@ async def generate_report(req: ReportRequest):
 
 
 @router.get("/report/{report_id}/download")
-async def download_report(report_id: str):
+async def download_report(
+    report_id: str,
+    user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     if report_id not in _reports:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Report not found.")
+    
     r = _reports[report_id]
-    pdf_bytes = _build_pdf(r["analysis_id"], r["title"])
+    if r["user_id"] != user["uid"]:
+        raise HTTPException(status_code=403, detail="Access denied.")
+
+    pdf_bytes = _build_pdf(r["analysis_id"], r["title"], user["uid"], db)
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="biaslens_report_{report_id[:8]}.pdf"'},
     )
+
+
+@router.get("/reports", response_model=List[ReportItem])
+async def get_reports(
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
+):
+    # Query all analyses for the current user
+    results = db.query(Analysis).filter(Analysis.user_id == user["uid"]).all()
+    reports = []
+    for a in results:
+        metrics_dict = a.metrics
+        reports.append(ReportItem(
+            id=a.id,
+            dataset_name=a.dataset.filename if a.dataset else "Unknown Dataset",
+            fairness_score=metrics_dict.get("fairness_score", 0),
+            risk_level=metrics_dict.get("risk_level", "Medium"),
+            created_at=a.created_at.isoformat()
+        ))
+    return reports

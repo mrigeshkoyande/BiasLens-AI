@@ -1,6 +1,7 @@
 # BiasLens AI
 
 <div align="center">
+<img src="frontend/public/logo.png" alt="BiasLens AI Logo" width="120" />
 
 **An Enterprise-Grade AI-Powered Fairness Auditing Platform**
 
@@ -52,16 +53,16 @@ The platform combines a modern React-based frontend with sophisticated Python ba
 ## Key Features
 
 ### Core Analytics
-- **Fairness Metrics Dashboard** — Compute Demographic Parity, Equal Opportunity, Disparate Impact, and custom fairness scores in real-time
-- **Explainable AI (XAI)** — SHAP-based feature importance and human-readable bias narratives to understand root causes
-- **Impact Simulation** — Mathematically project bias effects across scaled populations (100K+ applicants)
-- **Bias Mitigation Engine** — Compare and apply 4+ mitigation strategies (Reweighing, Suppression, SMOTE, Thresholding)
+- **Fairness Risk Engine** — Real-time computation of a weighted 0-100 `Risk Score` and severity levels (Low, Medium, High).
+- **Explainable AI (XAI)** — SHAP-based feature importance and human-readable bias narratives for root-cause analysis.
+- **Impact Simulation** — Mathematically project bias effects across scaled populations (e.g., "4,200 individuals unfairly disadvantaged").
+- **Mitigation Workbench** — Side-by-side "Before vs. After" comparison with direct `Risk Reduction %` metrics.
 
 ### User Experience
-- **Drag-and-Drop Dataset Upload** — Intuitive CSV upload with automatic column type inference and data validation
-- **Glass-Morphic Dashboard** — Modern dark-mode UI with real-time analytics and interactive visualizations
-- **AI-Powered Assistant** — Gemini-backed chatbot for on-demand fairness guidance and explanations
-- **Compliance Reporting** — Generate professional PDF reports with audit trails and recommendations
+- **Guided Demo Flow (Proctor Mode)** — Quick-load sample datasets (Loan Approval, Housing) for immediate bias auditing demonstrations.
+- **Compliance Matrix** — Real-time mapping of fairness scores to international frameworks like the **EU AI Act** and **NIST AI RMF**.
+- **Security & Multi-Tenancy** — Enterprise-grade **Firebase JWT Authentication** and strict user-id data isolation for secure multi-user auditing.
+- **Professional Reporting** — Export functional, audit-ready PDF reports with functional Share/Print capabilities.
 
 ---
 
@@ -70,15 +71,11 @@ The platform combines a modern React-based frontend with sophisticated Python ba
 | Component | Technology | Version |
 |-----------|-----------|---------|
 | **Frontend** | Next.js (App Router) | 14 |
-| **Frontend UI** | React, TypeScript, Tailwind CSS | Latest |
-| **Frontend Charts** | Recharts, Framer Motion | Latest |
 | **Backend** | FastAPI, Uvicorn | 0.115+ |
-| **Python Runtime** | Python | 3.13 |
-| **ML & Data Processing** | scikit-learn, pandas, numpy | Latest |
-| **Explainability** | SHAP | Latest |
+| **Authentication** | Firebase Auth (JWT) | Latest |
+| **Database** | SQLite (Production-ready schemas) | Latest |
 | **AI Integration** | Google Gemini 1.5 Flash API | Latest |
-| **PDF Generation** | ReportLab | Latest |
-| **Containerization** | Docker | Latest |
+| **ML & Data** | scikit-learn, AIF360, SHAP | Latest |
 
 ---
 
@@ -122,7 +119,10 @@ cp .env.example .env
 
 # Add your credentials to .env
 # GEMINI_API_KEY=your_api_key_here
-# DATABASE_URL=your_database_url (if applicable)
+# FIREBASE_SERVICE_ACCOUNT_PATH=path/to/firebase-key.json
+
+# Run database migrations
+python migrate_db.py
 
 # Start the development server
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -160,21 +160,21 @@ The application will be accessible at `http://localhost:3000`.
 ┌─────────────────────────────────────────────────────────────┐
 │                     Frontend (Next.js)                      │
 │  Dashboard │ Upload │ Analysis │ Simulation │ Reports       │
-└────────────────────────┬────────────────────────────────────┘
-                         │ REST API
-┌────────────────────────▼────────────────────────────────────┐
+└───────────────┬────────────────────────────────────┬────────┘
+                │ REST API + JWT Token               │
+┌───────────────▼────────────────────────────────────▼────────┐
 │                   API Layer (FastAPI)                       │
 │ ┌──────────┬──────────┬──────────┬──────────┬──────────────┐│
-│ │ Upload   │ Analyze  │ Explain  │Simulate  │ Mitigate    ││
-│ │ Router   │ Router   │ Router   │ Router   │ Router      ││
+│ │ Auth     │ Analyze  │ Explain  │Simulate  │ Mitigate    ││
+│ │ Middleware Router   │ Router   │ Router   │ Router      ││
 │ └────┬─────┴────┬─────┴────┬─────┴────┬─────┴─────┬───────┘│
-└─────┼──────────┼──────────┼──────────┼──────────┼──────────┘
-      │          │          │          │          │
-┌─────▼──────────▼──────────▼──────────▼──────────▼──────────┐
-│               Service Layer (Business Logic)               │
+└──────┼──────────┼──────────┼──────────┼───────────┼────────┘
+       │          │          │          │           │
+┌──────▼──────────▼──────────▼──────────▼───────────▼────────┐
+│               Service Layer & Persistence                  │
 │ ┌─────────────────┬──────────────────┬────────────────────┐│
-│ │ Bias Analysis   │ XAI & Reporting  │ Mitigation Engine  ││
-│ │ (scikit-learn)  │ (SHAP)           │ (pandas, numpy)    ││
+│ │ Bias Analysis   │ XAI & Reporting  │ Persistence        ││
+│ │ (scikit-learn)  │ (SHAP)           │ (SQLite / SQLAlchemy)│
 │ └─────────────────┴──────────────────┴────────────────────┘│
 └────────────────────────────────────────────────────────────┘
 ```
@@ -302,14 +302,15 @@ DEBUG=true
 PORT=8000
 CORS_ORIGINS=["http://localhost:3000"]
 
-# Database (optional)
-DATABASE_URL=sqlite:///./biaslens.db
-
 # AI Integration
 GEMINI_API_KEY=your_google_gemini_api_key
 
-# Logging
-LOG_LEVEL=INFO
+# Authentication
+FIREBASE_SERVICE_ACCOUNT_PATH=./firebase-key.json
+
+# Database
+# Default is ./biaslens.db
+DATABASE_URL=sqlite:///./biaslens.db
 ```
 
 ### Frontend Configuration

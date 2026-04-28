@@ -1,0 +1,11 @@
+application_id,applicant_age,applicant_race,annual_income,property_value,years_at_current_job,approved
+H001,23,Group_A,42000,250000,2,0
+H002,48,Group_B,95000,450000,15,1
+H003,31,Group_A,51000,280000,4,0
+H004,55,Group_B,130000,600000,22,1
+H005,25,Group_A,38000,240000,2,0
+H006,42,Group_B,82000,410000,10,1
+H007,29,Group_A,46000,270000,3,0
+H008,52,Group_B,110000,550000,20,1
+H009,27,Group_A,40000,260000,2,0
+H010,46,Group_B,88000,440000,14,1

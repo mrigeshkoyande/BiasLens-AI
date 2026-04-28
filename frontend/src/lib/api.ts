@@ -3,9 +3,21 @@
  * All fetch calls to the FastAPI backend go through this module.
  */
 
+import { auth } from './firebase';
+
 const API_BASE =
   (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
   'http://localhost:8000/api';
+
+/** Helper to get Firebase ID token and format Auth header */
+async function getAuthHeader() {
+  const user = auth.currentUser;
+  if (!user) return {};
+  const token = await user.getIdToken();
+  return {
+    'Authorization': `Bearer ${token}`
+  };
+}
 
 // ─── Shared Error Handling ────────────────────────────────────────────────────
 
@@ -73,7 +85,8 @@ export interface ApiFairnessMetrics {
   disparate_impact: number;
   average_odds: number;
   fairness_score: number;
-  risk_level: 'low' | 'medium' | 'high';
+  risk_score: number;
+  risk_level: 'Low' | 'Medium' | 'High';
   group_metrics: ApiGroupMetric[];
 }
 
@@ -81,6 +94,8 @@ export interface ApiAnalysisResponse {
   analysis_id: string;
   dataset_id: string;
   metrics: ApiFairnessMetrics;
+  risk_score: number;
+  risk_level: 'Low' | 'Medium' | 'High';
   model_accuracy: number;
 }
 
@@ -115,13 +130,16 @@ export interface ApiSimulationResponse {
   total_applicants: number;
   unfair_rejections: number;
   cost_of_bias: number;
-  affected_groups: ApiAffectedGroup[];
+  affected_groups: { group: string; affected: number; percentage: number }[];
+  plain_language_impact: string;
 }
 
 export interface ApiFixResponse {
   strategy: string;
   before_score: number;
   after_score: number;
+  before_risk_score: number;
+  after_risk_score: number;
   improvement: number;
   before_metrics: Record<string, number>;
   after_metrics: Record<string, number>;
@@ -141,19 +159,37 @@ export interface ApiChatResponse {
 
 // ─── API Functions ────────────────────────────────────────────────────────────
 
-/** Upload a CSV dataset and get column information back. */
+/** Upload a CSV dataset. */
 export async function uploadDataset(file: File): Promise<ApiDatasetUploadResponse> {
-  const form = new FormData();
-  form.append('file', file);
-  const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: form });
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const headers = await getAuthHeader();
+  const res = await fetch(`${API_BASE}/upload`, {
+    method: 'POST',
+    headers, // Don't set Content-Type, browser handles it for FormData
+    body: formData,
+  });
+  return handleResponse<ApiDatasetUploadResponse>(res);
+}
+
+/** Import a CSV dataset from a public URL. */
+export async function uploadDatasetFromUrl(url: string): Promise<ApiDatasetUploadResponse> {
+  const authHeaders = await getAuthHeader();
+  const res = await fetch(`${API_BASE}/upload/url`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
+    body: JSON.stringify({ url }),
+  });
   return handleResponse<ApiDatasetUploadResponse>(res);
 }
 
 /** Run fairness analysis on an uploaded dataset. */
 export async function analyzeDataset(req: ApiAnalysisRequest): Promise<ApiAnalysisResponse> {
+  const authHeaders = await getAuthHeader();
   const res = await fetch(`${API_BASE}/analyze`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
     body: JSON.stringify(req),
   });
   return handleResponse<ApiAnalysisResponse>(res);
@@ -161,18 +197,39 @@ export async function analyzeDataset(req: ApiAnalysisRequest): Promise<ApiAnalys
 
 /** Fetch a previously computed analysis result. */
 export async function getAnalysis(analysisId: string): Promise<{ analysis_id: string; metrics: ApiFairnessMetrics }> {
-  const res = await fetch(`${API_BASE}/analysis/${analysisId}`);
+  const authHeaders = await getAuthHeader();
+  const res = await fetch(`${API_BASE}/analysis/${analysisId}`, {
+    headers: authHeaders
+  });
   return handleResponse(res);
+}
+
+export interface ApiSampleScrutinyResponse {
+  analysis_id: string;
+  row_data: Record<string, string>;
+  decision_score: number;
+  top_contributors: { feature: string; value: string; impact: number; influence: 'positive' | 'negative' }[];
+  recommendation: string;
 }
 
 /** Generate permutation-importance + bias explanations for an analysis. */
 export async function explainBias(analysisId: string): Promise<ApiExplanationResponse> {
+  const authHeaders = await getAuthHeader();
   const res = await fetch(`${API_BASE}/explain`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
     body: JSON.stringify({ analysis_id: analysisId }),
   });
   return handleResponse<ApiExplanationResponse>(res);
+}
+
+/** Fetch a real row and model explanation for individual scrutiny. */
+export async function getSampleScrutiny(analysisId: string): Promise<ApiSampleScrutinyResponse> {
+  const authHeaders = await getAuthHeader();
+  const res = await fetch(`${API_BASE}/explain/sample/${analysisId}`, {
+    headers: authHeaders
+  });
+  return handleResponse<ApiSampleScrutinyResponse>(res);
 }
 
 /** Run a Monte Carlo bias-impact simulation. */
@@ -180,9 +237,10 @@ export async function simulateImpact(
   analysisId: string,
   numApplicants = 10000
 ): Promise<ApiSimulationResponse> {
+  const authHeaders = await getAuthHeader();
   const res = await fetch(`${API_BASE}/simulate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
     body: JSON.stringify({ analysis_id: analysisId, num_applicants: numApplicants }),
   });
   return handleResponse<ApiSimulationResponse>(res);
@@ -193,12 +251,21 @@ export async function applyFix(
   analysisId: string,
   strategy: 'reweight' | 'remove_sensitive' | 'fairness_constraint' | 'threshold_adjust'
 ): Promise<ApiFixResponse> {
+  const authHeaders = await getAuthHeader();
   const res = await fetch(`${API_BASE}/fix`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
     body: JSON.stringify({ analysis_id: analysisId, strategy }),
   });
   return handleResponse<ApiFixResponse>(res);
+}
+
+export interface ApiReportItem {
+  id: string;
+  dataset_name: string;
+  fairness_score: number;
+  risk_level: 'Low' | 'Medium' | 'High';
+  created_at: string;
 }
 
 /** Generate a PDF audit report and get a download URL. */
@@ -206,12 +273,22 @@ export async function generateReport(
   analysisId: string,
   title = 'Fairness Audit Report'
 ): Promise<ApiReportResponse> {
+  const authHeaders = await getAuthHeader();
   const res = await fetch(`${API_BASE}/report/generate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
     body: JSON.stringify({ analysis_id: analysisId, title }),
   });
   return handleResponse<ApiReportResponse>(res);
+}
+
+/** Fetch all previous audit reports from the database. */
+export async function getReports(): Promise<ApiReportItem[]> {
+  const authHeaders = await getAuthHeader();
+  const res = await fetch(`${API_BASE}/reports`, {
+    headers: authHeaders
+  });
+  return handleResponse<ApiReportItem[]>(res);
 }
 
 /** Build the absolute download URL for a report. */
@@ -220,17 +297,38 @@ export function getReportDownloadUrl(downloadPath: string): string {
   return downloadPath.startsWith('http') ? downloadPath : `${base}${downloadPath}`;
 }
 
-/** Send a message to the Gemini-powered bias chat assistant. */
-export async function sendChatMessage(
-  message: string,
-  analysisId?: string | null
-): Promise<ApiChatResponse> {
+/** Send a message to the AI Chat Assistant. */
+export async function sendChatMessage(message: string, analysisId?: string): Promise<ApiChatResponse> {
+  const authHeaders = await getAuthHeader();
   const res = await fetch(`${API_BASE}/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, analysis_id: analysisId ?? undefined }),
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
+    body: JSON.stringify({ message, analysis_id: analysisId }),
   });
   return handleResponse<ApiChatResponse>(res);
+}
+
+export interface InsightObservation {
+  num: string;
+  title: string;
+  desc: string;
+}
+
+export interface ApiInsightsResponse {
+  analysis_id: string;
+  observations: InsightObservation[];
+  executive_summary?: string;
+}
+
+/** Generate dynamic insights for a specific analysis using Gemini. */
+export async function generateInsights(analysisId: string): Promise<ApiInsightsResponse> {
+  const authHeaders = await getAuthHeader();
+  const res = await fetch(`${API_BASE}/insights`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
+    body: JSON.stringify({ analysis_id: analysisId }),
+  });
+  return handleResponse<ApiInsightsResponse>(res);
 }
 
 /** Ping the backend health endpoint. */

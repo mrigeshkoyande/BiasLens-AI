@@ -274,12 +274,27 @@ body {
 
 .topbar-logo {
   justify-self: start;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   color: var(--ink);
   font-size: 22px;
   font-weight: 900;
   letter-spacing: -0.04em;
   text-decoration: none;
+  white-space: nowrap;
   transition: opacity 0.3s var(--ease-smooth);
+}
+
+.logo-img {
+  object-fit: contain;
+  border-radius: 8px;
+  mix-blend-mode: multiply;
+}
+
+.sidebar-logo-img {
+  object-fit: contain;
+  mix-blend-mode: multiply;
 }
 
 .topbar-logo:active { opacity: 0.7; }
@@ -385,7 +400,7 @@ body {
 
 .sidebar-nav {
   flex: 1;
-  padding: 20px 18px 14px;
+  padding: 12px 18px 14px;
 }
 
 .sidebar-link {
