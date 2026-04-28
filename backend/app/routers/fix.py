@@ -1,7 +1,7 @@
 """
 Auto-fix router — applies bias mitigation strategies and returns before/after comparison.
 """
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LogisticRegression
