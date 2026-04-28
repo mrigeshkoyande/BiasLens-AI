@@ -29,7 +29,7 @@ app = FastAPI(
 # CORS — allow the Next.js frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://biaslens.ai"],
+    allow_origins=["*"],  # Allow all origins for easier deployment
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

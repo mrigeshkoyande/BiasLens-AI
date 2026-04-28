@@ -130,8 +130,8 @@ export default function DashboardPage() {
                 pipeline.groupMetrics.map((m: any, i: number) => (
                   <div key={m.group} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                     <div style={{
-                      width: '100%', height: Math.round(m.selectionRate * 100) + '%', borderRadius: '6px 6px 0 0',
-                      background: i === 0 ? 'var(--lime)' : m.selectionRate > 0.7 ? '#c8d88a' : '#b0b880',
+                      width: '100%', height: Math.round(m.selection_rate * 100) + '%', borderRadius: '6px 6px 0 0',
+                      background: i === 0 ? 'var(--lime)' : m.selection_rate > 0.7 ? '#c8d88a' : '#b0b880',
                       transition: 'height 0.8s cubic-bezier(.22,1,.36,1)',
                     }} />
                     <div style={{ fontSize: 'clamp(7px, 1.2vw, 9px)', color: 'var(--muted)', fontWeight: 600, textAlign: 'center', letterSpacing: '0.04em', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

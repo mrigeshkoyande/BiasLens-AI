@@ -10,7 +10,7 @@ const API_BASE =
   'http://localhost:8000/api';
 
 /** Helper to get Firebase ID token and format Auth header */
-async function getAuthHeader() {
+async function getAuthHeader(): Promise<Record<string, string>> {
   const user = auth.currentUser;
   if (!user) return {};
   const token = await user.getIdToken();

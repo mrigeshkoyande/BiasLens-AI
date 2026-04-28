@@ -73,7 +73,7 @@ export default function BiasChart({ groupMetrics }: BiasChartProps) {
               <XAxis dataKey="group" tick={{ fill: '#475569', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#475569', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v * 100).toFixed(0)}%`} domain={[0, 1]} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="selectionRate" name="Selection Rate" radius={[6, 6, 0, 0]}
+              <Bar dataKey="selection_rate" name="Selection Rate" radius={[6, 6, 0, 0]}
                 fill="url(#barGradient)" />
               <defs>
                 <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">

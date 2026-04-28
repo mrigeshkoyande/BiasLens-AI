@@ -7,7 +7,7 @@ export interface FairnessMetrics {
   averageOdds: number;
   fairnessScore: number;
   riskScore: number;
-  riskLevel: 'Low' | 'Medium' | 'High';
+  riskLevel: RiskLevel;
 }
 
 export interface GroupMetric {
