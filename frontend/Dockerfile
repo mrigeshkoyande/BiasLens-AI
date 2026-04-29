@@ -1,24 +1,20 @@
-FROM node:20-alpine
+FROM node:20
 
 WORKDIR /app
 
-# Install dependencies first (better caching)
+# Install dependencies
 COPY package*.json ./
 RUN npm install
 
-# Copy everything else
+# Copy everything (including .env.production)
 COPY . .
 
-# Environment variables
-ARG NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_TELEMETRY_DISABLED 1
 
-# Build the app
+# Build will now find the keys in .env.production
 RUN npm run build
 
 EXPOSE 3000
 ENV PORT 3000
 
-# Regular next start
 CMD ["npm", "start"]
