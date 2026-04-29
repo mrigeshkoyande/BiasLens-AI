@@ -5,10 +5,9 @@
 
 import { auth } from './firebase';
 import type { RiskLevel } from './types';
+import { CONFIG } from './config';
 
-const API_BASE =
-  (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
-  'http://localhost:8000/api';
+const API_BASE = CONFIG.NEXT_PUBLIC_API_URL;
 
 /** Helper to get Firebase ID token and format Auth header */
 async function getAuthHeader(): Promise<Record<string, string>> {
